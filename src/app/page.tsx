@@ -2,34 +2,33 @@
 
 import { useState, useEffect } from 'react'
 
-export default function Home() {
-  const [surfData, setSurfData] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [location] = useState('Byron Bay, Australia')
+interface SurfData {
+  waveHeight: number
+  wavePeriod: number
+  windSpeed: number
+}
 
-  const fetchSurfData = async () => {
-    setLoading(true)
-    try {
-      const response = await fetch('/api/surf?lat=-28.644&lng=153.612')
-      const data = await response.json()
-      
-      if (data.hours && data.hours.length > 0) {
-        const current = data.hours[0]
-        setSurfData({
-          waveHeight: current.waveHeight?.sg || 0,
-          wavePeriod: current.wavePeriod?.sg || 0,
-          windSpeed: current.windSpeed?.sg || 0
-        })
-      }
-      setLoading(false)
-    } catch (error) {
-      console.error('Error:', error)
-      setLoading(false)
-    }
-  }
+export default function Home() {
+  const [surfData, setSurfData] = useState<SurfData | null>(null)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchSurfData()
+    fetch('/api/surf?lat=-28.644&lng=153.612')
+      .then(response => response.json())
+      .then(data => {
+        if (data.hours && data.hours.length > 0) {
+          const current = data.hours[0]
+          setSurfData({
+            waveHeight: current.waveHeight?.sg || 0,
+            wavePeriod: current.wavePeriod?.sg || 0,
+            windSpeed: current.windSpeed?.sg || 0
+          })
+        }
+        setLoading(false)
+      })
+      .catch(() => {
+        setLoading(false)
+      })
   }, [])
 
   return (
@@ -40,7 +39,7 @@ export default function Home() {
         </h1>
         
         <div className="bg-white rounded-lg p-4 shadow-md mb-4">
-          <h2 className="text-lg font-semibold mb-3">{location}</h2>
+          <h2 className="text-lg font-semibold mb-3">Byron Bay, Australia</h2>
           
           {loading ? (
             <p className="text-gray-600">Loading surf conditions...</p>
