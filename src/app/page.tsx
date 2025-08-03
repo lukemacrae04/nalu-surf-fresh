@@ -23,7 +23,6 @@ export default function Home() {
   const router = useRouter()
 
   useEffect(() => {
-    // Check authentication
     const getUser = async () => {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user as User | null)
@@ -33,7 +32,6 @@ export default function Home() {
     }
     getUser()
 
-    // Fetch surf data
     fetch('/api/surf?lat=-28.644&lng=153.612')
       .then(response => response.json())
       .then(data => {
@@ -63,20 +61,21 @@ export default function Home() {
           {
             user_id: user.id,
             location: 'Byron Bay, Australia',
-            date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+            date: new Date().toISOString().split('T')[0],
             board_used: 'Default Board',
             conditions: `${surfData.waveHeight.toFixed(1)}m @ ${surfData.wavePeriod}s, ${surfData.windSpeed}km/h wind`,
-            rating: 5, // Default good rating
+            rating: 5,
             notes: 'Logged from Nalu app',
-            duration_minutes: 60 // Default 1 hour session
+            duration_minutes: 60
           }
         ])
       
       if (error) throw error
       alert('Session logged successfully! 🏄‍♂️')
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error logging session:', error)
-      alert('Failed to log session: ' + (error?.message || 'Unknown error'))
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+      alert('Failed to log session: ' + errorMessage)
     }
     setLoggingSession(false)
   }
@@ -135,15 +134,25 @@ export default function Home() {
           )}
         </div>
 
-        {surfData && (
+        <div className="space-y-3">
           <button
-            onClick={logSession}
-            disabled={loggingSession}
-            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+            onClick={() => router.push('/chat')}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-semibold py-3 px-4 rounded-lg transition-colors flex items-center justify-center gap-2"
           >
-            {loggingSession ? 'Logging Session...' : '🏄‍♂️ Log Surf Session'}
+            💬 Chat with Kai
+            <span className="text-sm opacity-90">- Log your session</span>
           </button>
-        )}
+
+          {surfData && (
+            <button
+              onClick={logSession}
+              disabled={loggingSession}
+              className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+            >
+              {loggingSession ? 'Logging Session...' : '🏄‍♂️ Quick Log Session'}
+            </button>
+          )}
+        </div>
 
         <p className="text-center text-gray-500 text-sm mt-4">
           Welcome back, {user?.email?.split('@')[0] || 'Surfer'}!
