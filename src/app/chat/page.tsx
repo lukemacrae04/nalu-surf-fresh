@@ -29,7 +29,7 @@ export default function Chat() {
   const [sessionData, setSessionData] = useState<SessionData>({})
   const [step, setStep] = useState(0)
   const [isLoggingMode, setIsLoggingMode] = useState(false)
-  const [currentConditions, setCurrentConditions] = useState<any>(null)
+  const [currentConditions, setCurrentConditions] = useState(null)
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
@@ -52,6 +52,7 @@ export default function Chat() {
 
   const generateSmartGreeting = async () => {
     try {
+      // Get current surf conditions
       const surfResponse = await fetch('/api/surf?lat=-28.644&lng=153.612')
       const surfData = await surfResponse.json()
       
@@ -61,7 +62,7 @@ export default function Chat() {
         const wavePeriod = current.wavePeriod?.sg || 0
         const windSpeed = current.windSpeed?.sg || 0
         
-        setCurrentConditions(current)
+        setCurrentConditions(current) // Store for later use
         
         const greeting = `G'day! Right now Byron Bay is showing ${waveHeight.toFixed(1)}m waves at ${wavePeriod.toFixed(0)}s with ${windSpeed.toFixed(0)}km/h wind. Looks like decent conditions for a surf! Want to check it out, or just finished a session?`
         
@@ -125,9 +126,11 @@ export default function Chat() {
     setLoading(true)
 
     try {
+      // Detect if user wants to log a session
       const sessionKeywords = /just (had|finished|got back|surfed)|session|surfed|came in|got out/i
 
       if (!isLoggingMode && sessionKeywords.test(userMessage)) {
+        // Switch to session logging mode
         setIsLoggingMode(true)
         setSessionData({ conditions: userMessage })
         setStep(1)
@@ -136,6 +139,7 @@ export default function Chat() {
           content: "Awesome! How long were you out?"
         }]))
       } else if (isLoggingMode) {
+        // Continue session logging flow
         const newSessionData = { ...sessionData }
         let nextQuestion = ''
 
@@ -183,58 +187,16 @@ export default function Chat() {
           }]))
         }
       } else {
-        // Check if asking about future conditions
-        const forecastKeywords = /tomorrow|next|later|should i surf/i
-        const isForecastRequest = forecastKeywords.test(userMessage)
+        // General surf advice using Claude AI with current conditions
+        const conversationHistory = messages.concat([{ role: 'user', content: userMessage }])
         
         let conditionsContext = ""
-        
-        if (isForecastRequest) {
-          // Fetch tomorrow's forecast
-          try {
-            const tomorrow = new Date()
-            tomorrow.setDate(tomorrow.getDate() + 1)
-            tomorrow.setHours(8, 0, 0, 0) // 8am tomorrow
-            const tomorrowISO = tomorrow.toISOString()
-            
-            console.log('Fetching forecast for:', tomorrowISO)
-            
-            const forecastResponse = await fetch(`/api/surf?lat=-28.644&lng=153.612&start=${tomorrowISO}`)
-            const forecastData = await forecastResponse.json()
-            
-            console.log('Forecast response:', forecastData)
-            
-            if (forecastData.hours && forecastData.hours.length > 0) {
-  // Find morning forecast (around 8-10am)
-  const morningForecast = forecastData.hours.find(item => {
-    const hourTime = new Date(item.time)
-    const hourOfDay = hourTime.getHours()
-    return hourOfDay >= 8 && hourOfDay <= 10
-  }) || forecastData.hours[0]
-  
-  const waveHeight = morningForecast.waveHeight?.sg || 0
-  const wavePeriod = morningForecast.wavePeriod?.sg || 0
-  const windSpeed = morningForecast.windSpeed?.sg || 0
-  
-  conditionsContext = `Tomorrow morning's forecast for Byron Bay: ${waveHeight.toFixed(1)}m waves at ${wavePeriod.toFixed(0)}s with ${windSpeed.toFixed(0)}km/h wind. `
-  
-  console.log('Tomorrow forecast context:', conditionsContext)
-} else {
-  console.log('No forecast data available')
-  conditionsContext = "Tomorrow's forecast data unavailable, but generally "
-}
-          } catch (error) {
-            console.error('Error fetching forecast:', error)
-            conditionsContext = "Tomorrow's forecast data unavailable, but generally "
-          }
-        } else if (currentConditions) {
-          const waveHeight = currentConditions.waveHeight?.sg || 0
-          const wavePeriod = currentConditions.wavePeriod?.sg || 0
-          const windSpeed = currentConditions.windSpeed?.sg || 0
-          conditionsContext = `Current Byron Bay conditions: ${waveHeight.toFixed(1)}m waves at ${wavePeriod.toFixed(0)}s with ${windSpeed.toFixed(0)}km/h wind. `
+        if (currentConditions) {
+        const waveHeight = currentConditions?.['waveHeight']?.['sg'] || 0
+const wavePeriod = currentConditions?.['wavePeriod']?.['sg'] || 0
+const windSpeed = currentConditions?.['windSpeed']?.['sg'] || 0
+conditionsContext = `Current Byron Bay conditions: ${Number(waveHeight).toFixed(1)}m waves at ${Number(wavePeriod).toFixed(0)}s with ${Number(windSpeed).toFixed(0)}km/h wind. `
         }
-
-        const conversationHistory = messages.concat([{ role: 'user', content: userMessage }])
 
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -243,7 +205,6 @@ export default function Chat() {
             message: userMessage,
             conversationHistory: conversationHistory,
             conditionsContext: conditionsContext,
-            isForecastRequest: isForecastRequest,
             userId: user?.id
           })
         })
