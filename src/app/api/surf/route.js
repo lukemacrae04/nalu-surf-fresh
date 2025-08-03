@@ -2,13 +2,19 @@ import { NextResponse } from 'next/server'
 
 export async function GET(request) {
   const { searchParams } = new URL(request.url)
-  const lat = searchParams.get('lat') || '-28.644'
+  const lat = searchParams.get('lat') || '-28.644' // Byron Bay default
   const lng = searchParams.get('lng') || '153.612'
+  const start = searchParams.get('start') // For forecast requests
   
-  const stormglassUrl = `https://api.stormglass.io/v2/weather/point?lat=${lat}&lng=${lng}&params=waveHeight,wavePeriod,waveDirection,windSpeed,windDirection&source=sg`
+  let stormglassUrl = `https://api.stormglass.io/v2/weather/point?lat=${lat}&lng=${lng}&params=waveHeight,wavePeriod,waveDirection,windSpeed,windDirection&source=sg`
+  
+  if (start) {
+    // Add start and end times for forecast
+    const endTime = new Date(new Date(start).getTime() + 24 * 60 * 60 * 1000).toISOString()
+    stormglassUrl += `&start=${start}&end=${endTime}`
+  }
   
   try {
-    console.log('API Key:', process.env.STORMGLASS_API_KEY)
     const response = await fetch(stormglassUrl, {
       headers: {
         'Authorization': process.env.STORMGLASS_API_KEY
@@ -18,6 +24,7 @@ export async function GET(request) {
     const data = await response.json()
     return NextResponse.json(data)
   } catch (error) {
+    console.error('Stormglass API error:', error)
     return NextResponse.json({ error: 'Failed to fetch surf data' }, { status: 500 })
   }
 }

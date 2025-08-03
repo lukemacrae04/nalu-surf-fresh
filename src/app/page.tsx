@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { supabase } from '../supabase'
+import { useRouter } from 'next/navigation'
 
 interface SurfData {
   waveHeight: number
@@ -8,11 +10,30 @@ interface SurfData {
   windSpeed: number
 }
 
+interface User {
+  id: string
+  email?: string
+}
+
 export default function Home() {
   const [surfData, setSurfData] = useState<SurfData | null>(null)
   const [loading, setLoading] = useState(true)
+  const [user, setUser] = useState<User | null>(null)
+  const [loggingSession, setLoggingSession] = useState(false)
+  const router = useRouter()
 
   useEffect(() => {
+    // Check authentication
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user as User | null)
+      if (!user) {
+        router.push('/login')
+      }
+    }
+    getUser()
+
+    // Fetch surf data
     fetch('/api/surf?lat=-28.644&lng=153.612')
       .then(response => response.json())
       .then(data => {
@@ -29,14 +50,65 @@ export default function Home() {
       .catch(() => {
         setLoading(false)
       })
-  }, [])
+  }, [router])
+
+  const logSession = async () => {
+    if (!surfData || !user) return
+    
+    setLoggingSession(true)
+    try {
+      const { error } = await supabase
+        .from('surf_sessions')
+        .insert([
+          {
+            user_id: user.id,
+            location: 'Byron Bay, Australia',
+            date: new Date().toISOString().split('T')[0], // YYYY-MM-DD format
+            board_used: 'Default Board',
+            conditions: `${surfData.waveHeight.toFixed(1)}m @ ${surfData.wavePeriod}s, ${surfData.windSpeed}km/h wind`,
+            rating: 5, // Default good rating
+            notes: 'Logged from Nalu app',
+            duration_minutes: 60 // Default 1 hour session
+          }
+        ])
+      
+      if (error) throw error
+      alert('Session logged successfully! 🏄‍♂️')
+    } catch (error: any) {
+      console.error('Error logging session:', error)
+      alert('Failed to log session: ' + (error?.message || 'Unknown error'))
+    }
+    setLoggingSession(false)
+  }
+
+  const signOut = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  if (!user) {
+    return <div className="min-h-screen bg-blue-50 p-4 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900 mx-auto"></div>
+        <p className="mt-2 text-gray-600">Loading...</p>
+      </div>
+    </div>
+  }
 
   return (
     <div className="min-h-screen bg-blue-50 p-4">
       <div className="max-w-md mx-auto">
-        <h1 className="text-2xl font-bold text-blue-900 mb-4">
-          🏄‍♂️ Nalu Surf
-        </h1>
+        <div className="flex justify-between items-center mb-4">
+          <h1 className="text-2xl font-bold text-blue-900">
+            🏄‍♂️ Nalu Surf
+          </h1>
+          <button 
+            onClick={signOut}
+            className="text-sm text-gray-600 hover:text-gray-800"
+          >
+            Sign Out
+          </button>
+        </div>
         
         <div className="bg-white rounded-lg p-4 shadow-md mb-4">
           <h2 className="text-lg font-semibold mb-3">Byron Bay, Australia</h2>
@@ -62,6 +134,20 @@ export default function Home() {
             <p className="text-red-600">Failed to load surf data</p>
           )}
         </div>
+
+        {surfData && (
+          <button
+            onClick={logSession}
+            disabled={loggingSession}
+            className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+          >
+            {loggingSession ? 'Logging Session...' : '🏄‍♂️ Log Surf Session'}
+          </button>
+        )}
+
+        <p className="text-center text-gray-500 text-sm mt-4">
+          Welcome back, {user?.email?.split('@')[0] || 'Surfer'}!
+        </p>
       </div>
     </div>
   )
