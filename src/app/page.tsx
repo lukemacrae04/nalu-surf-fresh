@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import { useRouter } from 'next/navigation'
+import { SURF_SPOTS } from './api/locations.js'
 
 interface SurfData {
   waveHeight: number
@@ -20,6 +21,7 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<User | null>(null)
   const [loggingSession, setLoggingSession] = useState(false)
+  const [selectedSpot, setSelectedSpot] = useState(SURF_SPOTS[0]) // Default to The Pass
   const router = useRouter()
 
   useEffect(() => {
@@ -31,24 +33,34 @@ export default function Home() {
       }
     }
     getUser()
-
-    fetch('/api/surf?lat=-28.644&lng=153.612')
-      .then(response => response.json())
-      .then(data => {
-        if (data.hours && data.hours.length > 0) {
-          const current = data.hours[0]
-          setSurfData({
-            waveHeight: current.waveHeight?.sg || 0,
-            wavePeriod: current.wavePeriod?.sg || 0,
-            windSpeed: current.windSpeed?.sg || 0
-          })
-        }
-        setLoading(false)
-      })
-      .catch(() => {
-        setLoading(false)
-      })
   }, [router])
+
+  useEffect(() => {
+    // Fetch surf data when spot changes
+    if (selectedSpot) {
+      fetchSurfData(selectedSpot.lat, selectedSpot.lng)
+    }
+  }, [selectedSpot])
+
+  const fetchSurfData = async (lat: number, lng: number) => {
+    setLoading(true)
+    try {
+      const response = await fetch(`/api/surf?lat=${lat}&lng=${lng}`)
+      const data = await response.json()
+      
+      if (data.hours && data.hours.length > 0) {
+        const current = data.hours[0]
+        setSurfData({
+          waveHeight: current.waveHeight?.sg || 0,
+          wavePeriod: current.wavePeriod?.sg || 0,
+          windSpeed: current.windSpeed?.sg || 0
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching surf data:', error)
+    }
+    setLoading(false)
+  }
 
   const logSession = async () => {
     if (!surfData || !user) return
@@ -60,7 +72,7 @@ export default function Home() {
         .insert([
           {
             user_id: user.id,
-            location: 'Byron Bay, Australia',
+            location: `${selectedSpot.name}, ${selectedSpot.region}`,
             date: new Date().toISOString().split('T')[0],
             board_used: 'Default Board',
             conditions: `${surfData.waveHeight.toFixed(1)}m @ ${surfData.wavePeriod}s, ${surfData.windSpeed}km/h wind`,
@@ -108,9 +120,37 @@ export default function Home() {
             Sign Out
           </button>
         </div>
-        
+
+        {/* Spot Selector */}
         <div className="bg-white rounded-lg p-4 shadow-md mb-4">
-          <h2 className="text-lg font-semibold mb-3">Byron Bay, Australia</h2>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            📍 Select Surf Spot
+          </label>
+          <select
+            value={selectedSpot.id}
+            onChange={(e) => {
+              const spot = SURF_SPOTS.find(s => s.id === e.target.value)
+              if (spot) setSelectedSpot(spot)
+            }}
+            className="w-full p-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            {SURF_SPOTS.map(spot => (
+              <option key={spot.id} value={spot.id}>
+                {spot.name} - {spot.region}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-gray-500 mt-1">
+            {selectedSpot.description}
+          </p>
+        </div>
+        
+        {/* Surf Conditions */}
+        <div className="bg-white rounded-lg p-4 shadow-md mb-4">
+          <h2 className="text-lg font-semibold mb-3">
+            {selectedSpot.name}
+          </h2>
+          <p className="text-sm text-gray-600 mb-3">{selectedSpot.region}</p>
           
           {loading ? (
             <p className="text-gray-600">Loading surf conditions...</p>
@@ -134,6 +174,7 @@ export default function Home() {
           )}
         </div>
 
+        {/* Action Buttons */}
         <div className="space-y-3">
           <button
             onClick={() => router.push('/chat')}
