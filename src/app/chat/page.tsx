@@ -52,7 +52,6 @@ export default function Chat() {
 
   const generateSmartGreeting = async () => {
     try {
-      // Get current surf conditions
       const surfResponse = await fetch('/api/surf?lat=-28.644&lng=153.612')
       const surfData = await surfResponse.json()
       
@@ -62,7 +61,7 @@ export default function Chat() {
         const wavePeriod = current.wavePeriod?.sg || 0
         const windSpeed = current.windSpeed?.sg || 0
         
-        setCurrentConditions(current) // Store for later use
+        setCurrentConditions(current)
         
         const greeting = `G'day! Right now Byron Bay is showing ${waveHeight.toFixed(1)}m waves at ${wavePeriod.toFixed(0)}s with ${windSpeed.toFixed(0)}km/h wind. Looks like decent conditions for a surf! Want to check it out, or just finished a session?`
         
@@ -126,11 +125,9 @@ export default function Chat() {
     setLoading(true)
 
     try {
-      // Detect if user wants to log a session
       const sessionKeywords = /just (had|finished|got back|surfed)|session|surfed|came in|got out/i
 
       if (!isLoggingMode && sessionKeywords.test(userMessage)) {
-        // Switch to session logging mode
         setIsLoggingMode(true)
         setSessionData({ conditions: userMessage })
         setStep(1)
@@ -139,7 +136,6 @@ export default function Chat() {
           content: "Awesome! How long were you out?"
         }]))
       } else if (isLoggingMode) {
-        // Continue session logging flow
         const newSessionData = { ...sessionData }
         let nextQuestion = ''
 
@@ -187,16 +183,19 @@ export default function Chat() {
           }]))
         }
       } else {
-        // General surf advice using Claude AI with current conditions
-        const conversationHistory = messages.concat([{ role: 'user', content: userMessage }])
+        const forecastKeywords = /tomorrow|next|later|should i surf/i
+        const isForecastRequest = forecastKeywords.test(userMessage)
         
         let conditionsContext = ""
+        
         if (currentConditions) {
-        const waveHeight = currentConditions?.['waveHeight']?.['sg'] || 0
-const wavePeriod = currentConditions?.['wavePeriod']?.['sg'] || 0
-const windSpeed = currentConditions?.['windSpeed']?.['sg'] || 0
-conditionsContext = `Current Byron Bay conditions: ${Number(waveHeight).toFixed(1)}m waves at ${Number(wavePeriod).toFixed(0)}s with ${Number(windSpeed).toFixed(0)}km/h wind. `
+          const waveHeight = currentConditions?.['waveHeight']?.['sg'] || 0
+          const wavePeriod = currentConditions?.['wavePeriod']?.['sg'] || 0
+          const windSpeed = currentConditions?.['windSpeed']?.['sg'] || 0
+          conditionsContext = `Current Byron Bay conditions: ${Number(waveHeight).toFixed(1)}m waves at ${Number(wavePeriod).toFixed(0)}s with ${Number(windSpeed).toFixed(0)}km/h wind. `
         }
+
+        const conversationHistory = messages.concat([{ role: 'user', content: userMessage }])
 
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -226,72 +225,96 @@ conditionsContext = `Current Byron Bay conditions: ${Number(waveHeight).toFixed(
   }
 
   if (!user) {
-    return <div className="min-h-screen bg-blue-50 p-4 flex items-center justify-center">
-      <div className="text-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-900 mx-auto"></div>
-        <p className="mt-2 text-gray-600">Loading...</p>
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto"></div>
+          <p className="mt-2 text-blue-200">Loading...</p>
+        </div>
       </div>
-    </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-blue-50 p-4">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-4">
       <div className="max-w-md mx-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h1 className="text-2xl font-bold text-blue-900">
-            🏄‍♂️ Chat with Kai
-          </h1>
+        {/* Header */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-400 to-cyan-400 rounded-full flex items-center justify-center">
+              🏄‍♂️
+            </div>
+            <div>
+              <h1 className="text-xl font-bold text-white">Chat with Kai</h1>
+              <p className="text-sm text-blue-200">Your AI surf buddy</p>
+            </div>
+          </div>
           <button 
             onClick={() => router.push('/')}
-            className="text-sm text-gray-600 hover:text-gray-800"
+            className="text-blue-200 hover:text-white transition-colors px-3 py-1 rounded-lg border border-blue-400/30 hover:border-blue-400/60"
           >
-            Back to Conditions
+            ← Back
           </button>
         </div>
         
-        <div className="bg-white rounded-lg shadow-md h-96 flex flex-col">
+        {/* Chat Container */}
+        <div className="bg-white/10 backdrop-blur-md rounded-2xl border border-white/20 shadow-2xl h-[500px] flex flex-col overflow-hidden">
+          {/* Messages Area */}
           <div className="flex-1 p-4 overflow-y-auto space-y-4">
             {messages.map((message, index) => (
               <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                <div className={`max-w-[280px] px-4 py-3 rounded-2xl ${
                   message.role === 'user' 
-                    ? 'bg-blue-600 text-white' 
-                    : 'bg-gray-200 text-gray-800'
+                    ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg' 
+                    : 'bg-white/90 backdrop-blur-sm text-slate-800 shadow-md border border-white/30'
                 }`}>
-                  {message.content}
+                  <p className="text-sm leading-relaxed">{message.content}</p>
                 </div>
               </div>
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-gray-200 text-gray-800 px-4 py-2 rounded-lg">
-                  Kai is thinking...
+                <div className="bg-white/80 backdrop-blur-sm text-slate-600 px-4 py-3 rounded-2xl shadow-md border border-white/30">
+                  <div className="flex items-center gap-2">
+                    <div className="flex space-x-1">
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce"></div>
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.1s'}}></div>
+                      <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{animationDelay: '0.2s'}}></div>
+                    </div>
+                    <span className="text-sm">Kai is thinking...</span>
+                  </div>
                 </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
           
-          <div className="p-4 border-t">
-            <div className="flex space-x-2">
+          {/* Input Area */}
+          <div className="p-4 border-t border-white/20 bg-white/5">
+            <div className="flex gap-3">
               <input
                 type="text"
                 value={inputMessage}
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                 placeholder="Message Kai..."
-                className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="flex-1 px-4 py-3 bg-white/90 backdrop-blur-sm border border-white/30 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent text-slate-800 placeholder-slate-500"
               />
               <button
                 onClick={sendMessage}
                 disabled={loading || !inputMessage.trim()}
-                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-4 py-2 rounded-lg"
+                className="bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-slate-400 disabled:to-slate-500 text-white px-6 py-3 rounded-xl font-medium transition-all duration-200 shadow-lg disabled:shadow-none"
               >
                 Send
               </button>
             </div>
           </div>
         </div>
+
+        {/* Bottom Info */}
+        <p className="text-center text-blue-200/60 text-xs mt-4">
+          Ask about conditions • Log sessions • Get surf advice
+        </p>
       </div>
     </div>
   )
