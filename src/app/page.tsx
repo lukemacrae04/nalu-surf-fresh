@@ -1,634 +1,635 @@
-'use client';
-/* eslint-disable @typescript-eslint/no-explicit-any */
-/* eslint-disable @typescript-eslint/no-unused-vars */
-/* eslint-disable react-hooks/exhaustive-deps */
+'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../supabase'
-import { SURF_SPOTS } from '@/app/api/locations'
+import { useRouter } from 'next/navigation'
 
-export default function Home() {
-  const [session, setSession] = useState<any>(null)
-  const [user, setUser] = useState<any>(null)
-  const [surfData, setSurfData] = useState<any>(null)
-  const [loading, setLoading] = useState(true)
-  const [loggingSession, setLoggingSession] = useState(false)
-  const [selectedLocation, setSelectedLocation] = useState(SURF_SPOTS[0])
-  const [currentCardIndex, setCurrentCardIndex] = useState(0)
+interface SurfData {
+  waveHeight: number
+  wavePeriod: number
+  windSpeed: number
+  windDirection: number
+  swellDirection: number
+  temperature: number
+  waterTemp: number
+  uvIndex: number
+}
+
+interface User {
+  id: string
+  email?: string
+}
+
+interface Message {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+interface SurfSpot {
+  id: string
+  name: string
+  lat: number
+  lng: number
+  region: string
+  type: string
+  description: string
+}
+
+const surfSpots: SurfSpot[] = [
+  // NSW - Byron Bay Area
+  { id: 'the-pass', name: 'The Pass, Byron Bay', lat: -28.63764444, lng: 153.62803, region: 'NSW', type: 'Point Break', description: 'World-famous right-hand point break' },
+  { id: 'main-beach-byron', name: 'Main Beach, Byron Bay', lat: -28.641084, lng: 153.61461, region: 'NSW', type: 'Beach Break', description: 'Consistent beach break in town' },
+  { id: 'tallows-beach', name: 'Tallows Beach', lat: -28.658, lng: 153.615, region: 'NSW', type: 'Beach Break', description: 'Long beach break south of Byron' },
+  { id: 'wategos', name: 'Wategos Beach', lat: -28.630, lng: 153.635, region: 'NSW', type: 'Beach Break', description: 'Protected bay perfect for beginners' },
+  
+  // NSW - Lennox Head
+  { id: 'lennox-point', name: 'Lennox Head Point', lat: -28.793, lng: 153.587, region: 'NSW', type: 'Point Break', description: 'Powerful right-hand point break' },
+  
+  // NSW - Sydney Northern Beaches
+  { id: 'manly-north-steyne', name: 'Manly North Steyne', lat: -33.796, lng: 151.2884, region: 'NSW', type: 'Beach Break', description: 'Sydney\'s premier surf beach' },
+  { id: 'dee-why', name: 'Dee Why', lat: -33.754, lng: 151.298, region: 'NSW', type: 'Beach Break', description: 'Consistent northern beaches break' },
+  { id: 'freshwater', name: 'Freshwater', lat: -33.778, lng: 151.289, region: 'NSW', type: 'Beach Break', description: 'Historic surf beach' },
+  
+  // NSW - Sydney Eastern Beaches
+  { id: 'bondi', name: 'Bondi Beach', lat: -33.890542, lng: 151.274856, region: 'NSW', type: 'Beach Break', description: 'World\'s most famous city beach' },
+  { id: 'bronte', name: 'Bronte Beach', lat: -33.903, lng: 151.268, region: 'NSW', type: 'Beach Break', description: 'Consistent waves in eastern suburbs' },
+  { id: 'coogee', name: 'Coogee Beach', lat: -33.921, lng: 151.258, region: 'NSW', type: 'Beach Break', description: 'Southern beaches surf spot' },
+  
+  // NSW - South Coast
+  { id: 'currarong', name: 'Currarong', lat: -35.012, lng: 150.821, region: 'NSW', type: 'Beach Break', description: 'South coast quality waves' },
+  { id: 'merimbula', name: 'Merimbula', lat: -36.88901, lng: 149.90961, region: 'NSW', type: 'Beach Break', description: 'Far south coast surf town' },
+  
+  // QLD - Gold Coast
+  { id: 'superbank', name: 'Superbank', lat: -28.025, lng: 153.435, region: 'QLD', type: 'Point Break', description: 'World\'s longest mechanical wave' },
+  { id: 'burleigh-heads', name: 'Burleigh Heads', lat: -28.089, lng: 153.447, region: 'QLD', type: 'Point Break', description: 'Classic Gold Coast point break' },
+  { id: 'north-burleigh', name: 'North Burleigh', lat: -28.074104, lng: 153.44651, region: 'QLD', type: 'Beach Break', description: 'Quality beach break waves' },
+  { id: 'currumbin', name: 'Currumbin', lat: -28.135, lng: 153.485, region: 'QLD', type: 'Point Break', description: 'Right-hand point break' },
+  
+  // QLD - Sunshine Coast
+  { id: 'peregian', name: 'Peregian', lat: -26.480171870235186, lng: 153.0989, region: 'QLD', type: 'Beach Break', description: 'Sunshine Coast quality waves' },
+  { id: 'noosa', name: 'Noosa Main Beach', lat: -26.392, lng: 153.097, region: 'QLD', type: 'Point Break', description: 'Protected longboard waves' },
+  
+  // VIC - Surf Coast
+  { id: 'bells-beach', name: 'Bells Beach', lat: -38.373, lng: 144.279, region: 'VIC', type: 'Point Break', description: 'Home of the Rip Curl Pro' },
+  { id: 'winki-pop', name: 'Winki Pop', lat: -38.365, lng: 144.285, region: 'VIC', type: 'Point Break', description: 'Perfect right-hand point' },
+  
+  // WA - Margaret River
+  { id: 'main-break', name: 'Margaret River Main Break', lat: -33.955, lng: 115.072, region: 'WA', type: 'Reef Break', description: 'Powerful left-hand reef break' },
+  { id: 'smiths-beach', name: 'Smiths Beach', lat: -33.65705556, lng: 115.01457, region: 'WA', type: 'Beach Break', description: 'Margaret River region beach break' },
+  
+  // SA - Adelaide
+  { id: 'north-beach-adelaide', name: 'North Beach', lat: -33.8961, lng: 137.6259, region: 'SA', type: 'Beach Break', description: 'Adelaide metro surf beach' }
+]
+
+export default function ChatFirstHomepage() {
+  const [user, setUser] = useState<User | null>(null)
+  const [messages, setMessages] = useState<Message[]>([])
+  const [inputMessage, setInputMessage] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [currentSpot, setCurrentSpot] = useState<SurfSpot>(surfSpots[0])
+  const [surfData, setSurfData] = useState<SurfData | null>(null)
+  const [leftPanelOpen, setLeftPanelOpen] = useState(false)
+  const [canvasMode, setCanvasMode] = useState<'chat' | 'forecast' | 'sessions' | 'locations'>('chat')
+  const [searchTerm, setSearchTerm] = useState('')
+  const messagesEndRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
 
+  // Initialize with welcome message
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      setSession(data.session)
-      setUser(data.session?.user ?? null)
-    })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
-      setSession(session)
-      setUser(session?.user ?? null)
-    })
-
-    return () => subscription.unsubscribe()
+    const welcomeMessage: Message = {
+      role: 'assistant',
+      content: `Hey! I'm Kai, your AI surf buddy. I can help you with surf conditions, log your sessions, plan trips, or suggest workouts for flat days. What would you like to know?`
+    }
+    setMessages([welcomeMessage])
   }, [])
 
+  // Scroll to bottom when messages change
   useEffect(() => {
-    fetchSurfData()
-  }, [selectedLocation])
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
+
+  // Auth check
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      setUser(user as User | null)
+      if (!user) {
+        router.push('/login')
+      }
+    }
+    getUser()
+  }, [router])
+
+  // Fetch surf data for current spot
+  useEffect(() => {
+    if (currentSpot) {
+      fetchSurfData()
+    }
+  }, [currentSpot])
 
   const fetchSurfData = async () => {
     try {
-      const response = await fetch(`/api/surf?lat=${selectedLocation.lat}&lng=${selectedLocation.lng}`)
+      const response = await fetch(`/api/surf?lat=${currentSpot.lat}&lng=${currentSpot.lng}`)
       const data = await response.json()
       
-      if (data.error) {
-        console.error('Failed to fetch surf data:', data.error)
-        setSurfData(null)
-      } else {
-        setSurfData(data)
+      if (data.hours && data.hours.length > 0) {
+        const current = data.hours[0]
+        setSurfData({
+          waveHeight: current.waveHeight?.sg || 0,
+          wavePeriod: current.wavePeriod?.sg || 0,
+          windSpeed: current.windSpeed?.sg || 0,
+          windDirection: current.windDirection?.sg || 0,
+          swellDirection: current.swellDirection?.sg || 0,
+          temperature: current.airTemperature?.sg || 20,
+          waterTemp: current.waterTemperature?.sg || 20,
+          uvIndex: current.uvIndex?.sg || 5
+        })
       }
     } catch (error) {
-      console.error('Failed to fetch surf data:', error)
-      setSurfData(null)
-    } finally {
-      setLoading(false)
+      console.error('Error fetching surf data:', error)
     }
   }
 
-  const signInWithGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`
+  const sendMessage = async () => {
+    if (!inputMessage.trim() || loading) return
+
+    const userMessage = inputMessage.trim()
+    setInputMessage('')
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }])
+    setLoading(true)
+
+    try {
+      // Check if user is asking about conditions - switch to forecast canvas
+      if (userMessage.toLowerCase().includes('condition') || 
+          userMessage.toLowerCase().includes('surf') ||
+          userMessage.toLowerCase().includes('forecast')) {
+        setCanvasMode('forecast')
       }
-    })
-    if (error) console.error('Error:', error)
+
+      // Check if user is asking about sessions
+      if (userMessage.toLowerCase().includes('session') ||
+          userMessage.toLowerCase().includes('log')) {
+        setCanvasMode('sessions')
+      }
+
+      // Create conditions context for AI
+      let conditionsContext = ""
+      if (surfData) {
+        const windDir = getDirectionFromDegrees(surfData.windDirection)
+        const swellDir = getDirectionFromDegrees(surfData.swellDirection)
+        conditionsContext = `Current ${currentSpot.name} conditions: ${surfData.waveHeight.toFixed(1)}m waves at ${surfData.wavePeriod.toFixed(0)}s, ${surfData.windSpeed.toFixed(0)}km/h ${windDir} wind, swell from ${swellDir}. `
+      }
+
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: userMessage,
+          conversationHistory: messages.concat([{ role: 'user', content: userMessage }]),
+          conditionsContext: conditionsContext,
+          location: currentSpot.name,
+          userId: user?.id
+        })
+      })
+
+      const data = await response.json()
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.response || "Sorry, I'm having some technical issues. Try asking again!"
+      }])
+    } catch (error) {
+      console.error('Chat error:', error)
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: "Something went wrong. Let's try that again."
+      }])
+    }
+    setLoading(false)
   }
 
-  const signOut = async () => {
-    const { error } = await supabase.auth.signOut()
-    if (error) console.error('Error:', error)
-  }
-
-  const logSession = async () => {
-    if (!user) {
-      alert('Please sign in to log sessions')
-      return
-    }
-
-    setLoggingSession(true)
-    
-    const currentConditions = surfData?.hours?.[0]
-    const waveHeight = currentConditions?.waveHeight?.sg || 0
-    const wavePeriod = currentConditions?.wavePeriod?.sg || 0
-    const windSpeed = currentConditions?.windSpeed?.sg || 0
-    
-    const sessionData = {
-      user_id: user.id,
-      location: selectedLocation.name,
-      duration: 60,
-      board: 'My favorite board',
-      rating: 4,
-      conditions: `${waveHeight.toFixed(1)}m @ ${wavePeriod.toFixed(0)}s, ${windSpeed.toFixed(0)}km/h wind`,
-      notes: 'Quick log from homepage'
-    }
-
-    const { error } = await supabase
-      .from('surf_sessions')
-      .insert([sessionData])
-
-    if (error) {
-      console.error('Error logging session:', error)
-      alert('Failed to log session')
-    } else {
-      alert(`Session logged at ${selectedLocation.name}! 🏄‍♂️`)
-    }
-    
-    setLoggingSession(false)
-  }
-
-  // Helper function to convert degrees to compass direction
-  const degreesToCompass = (degrees: number) => {
+  const getDirectionFromDegrees = (degrees: number): string => {
     const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
-    const index = Math.round(((degrees % 360) / 22.5))
-    return directions[index % 16]
+    const index = Math.round(degrees / 22.5) % 16
+    return directions[index]
   }
 
-  // Helper function to convert meters to feet
-  const metersToFeet = (meters: number) => {
-    return (meters * 3.28084).toFixed(0)
-  }
-
-  // Helper function to get surf height description
-  const getSurfDescription = (height: number) => {
-    if (height < 0.5) return 'Flat'
-    if (height < 1) return 'Knee high'
-    if (height < 1.5) return 'Waist high'
-    if (height < 2) return 'Chest high'
-    if (height < 2.5) return 'Head high'
-    if (height < 3) return 'Overhead'
-    return '2x overhead'
-  }
-
-  // Get wetsuit recommendation based on water temp
-  const getWetsuitRecommendation = (temp: number) => {
-    if (temp >= 24) return 'Boardshorts'
-    if (temp >= 21) return 'Springsuit'
-    if (temp >= 18) return '2mm Wetsuit'
-    if (temp >= 15) return '3/2 Full Suit'
-    return '4/3 Full Suit'
-  }
-
-  // Get current conditions
-  const currentConditions = surfData?.hours?.[0]
-  const waveHeight = currentConditions?.waveHeight?.sg || 0
-  const wavePeriod = currentConditions?.wavePeriod?.sg || 0
-  const waveDirection = currentConditions?.waveDirection?.sg || 0
-  const windSpeed = currentConditions?.windSpeed?.sg || 0
-  const windDirection = currentConditions?.windDirection?.sg || 0
-  const waterTemp = currentConditions?.waterTemperature?.sg || 20
-  const airTemp = currentConditions?.airTemperature?.sg || 22
-  const uvIndex = currentConditions?.uvIndex?.sg || 5
-
-  // Calculate tide data (mock for now - you'll need tide API data)
-  const currentHour = new Date().getHours()
-  const tideHeight = 1.2 + Math.sin((currentHour / 24) * Math.PI * 2) * 0.8
-  const nextHighTide = "1:30pm"
-  const nextHighHeight = "1.8m"
-
-  // Calculate personalized rating based on conditions
-  const getPersonalizedRating = (location: any) => {
-    // This would eventually use user preferences and AI
-    // For now, using simple logic based on wave height
-    const height = waveHeight || 1.5
-    const period = wavePeriod || 8
+  const handleSpotChange = (spot: SurfSpot) => {
+    setCurrentSpot(spot)
+    setCanvasMode('forecast')
     
-    // Mock rating logic (would be personalized based on user profile)
-    let rating = 3 // Base rating
-    
-    // Good wave height for intermediate surfer (1.5-2.5m)
-    if (height >= 1.5 && height <= 2.5) rating = 4
-    if (height >= 1.8 && height <= 2.2 && period >= 10) rating = 5
-    
-    // Too small or too big
-    if (height < 1) rating = 2
-    if (height > 3) rating = 2 // Would be 5 for advanced surfers
-    
-    return rating
+    // Add system message about spot change
+    setMessages(prev => [...prev, {
+      role: 'assistant',
+      content: `Switched to ${spot.name}. Checking conditions now...`
+    }])
   }
 
-  // Generate star display
-  const renderStars = (rating: number) => {
-    return '★'.repeat(rating) + '☆'.repeat(5 - rating)
-  }
+  const renderLocationsCanvas = () => {
+    // Filter spots based on search term
+    const filteredSpots = surfSpots.filter(spot =>
+      spot.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      spot.region.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      spot.type.toLowerCase().includes(searchTerm.toLowerCase())
+    )
 
-  // Condition cards data
-  const conditionCards = [
-    {
-      title: 'SURF HEIGHT',
-      mainValue: `${metersToFeet(waveHeight)}-${metersToFeet(waveHeight * 1.2)}ft`,
-      subtitle: getSurfDescription(waveHeight),
-      details: [
-        { label: 'Swell', value: `${waveHeight.toFixed(1)}m @ ${wavePeriod.toFixed(0)}s`, direction: degreesToCompass(waveDirection) },
-        { label: 'Secondary', value: `${(waveHeight * 0.7).toFixed(1)}m @ ${(wavePeriod * 0.8).toFixed(0)}s`, direction: degreesToCompass(waveDirection + 45) }
-      ]
-    },
-    {
-      title: 'WIND',
-      mainValue: `${windSpeed.toFixed(0)}kts ${degreesToCompass(windDirection)}`,
-      subtitle: windSpeed < 10 ? 'Light & variable' : windSpeed < 15 ? 'Moderate cross-shore' : 'Strong cross-shore',
-      compass: windDirection,
-      details: [
-        { label: 'Current', value: `${windSpeed.toFixed(0)}kts` },
-        { label: 'Gusts', value: `${(windSpeed * 1.2).toFixed(0)}kts` }
-      ]
-    },
-    {
-      title: 'TIDE',
-      mainValue: `${tideHeight.toFixed(1)}m`,
-      subtitle: tideHeight > 1.2 ? 'Rising' : 'Falling',
-      details: [
-        { label: 'Next High', value: nextHighTide },
-        { label: 'Height', value: nextHighHeight }
-      ],
-      showGraph: true
-    },
-    {
-      title: 'TEMPERATURE',
-      customContent: true,
-      temps: {
-        water: waterTemp,
-        air: airTemp,
-        recommendation: getWetsuitRecommendation(waterTemp),
-        uvIndex: uvIndex
+    // Group filtered spots by region
+    const groupedSpots = filteredSpots.reduce((acc, spot) => {
+      if (!acc[spot.region]) {
+        acc[spot.region] = []
       }
-    }
-  ]
+      acc[spot.region].push(spot)
+      return acc
+    }, {} as Record<string, SurfSpot[]>)
 
-  const nextCard = () => {
-    setCurrentCardIndex((prev) => (prev + 1) % conditionCards.length)
-  }
+    return (
+      <div className="p-6 space-y-6">
+        {/* Header */}
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-white mb-2">Select Surf Spot</h2>
+          <div className="text-blue-200">Choose from 25+ Australian surf breaks</div>
+        </div>
 
-  const prevCard = () => {
-    setCurrentCardIndex((prev) => (prev - 1 + conditionCards.length) % conditionCards.length)
-  }
+        {/* Search Bar */}
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search spots, regions, break types..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white placeholder-white/60 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+          <svg className="absolute right-3 top-3 w-5 h-5 text-white/40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+        </div>
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
-      {/* Premium Header */}
-      <header className="relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-black/20 to-transparent"></div>
-        <div className="relative max-w-6xl mx-auto px-4 py-6">
-          <div className="flex justify-between items-center">
-            <div>
-              <h1 className="text-3xl font-bold text-white">Nalu</h1>
-              <p className="text-blue-200 text-sm">AI Surf Intelligence</p>
-            </div>
-            
-            {/* Auth Button */}
-            <div>
-              {session ? (
-                <div className="flex items-center gap-3">
-                  <span className="text-white/80 text-sm hidden sm:inline">
-                    {user?.email}
-                  </span>
+        {/* Grouped Spot List */}
+        <div className="space-y-6">
+          {Object.entries(groupedSpots).map(([region, spots]) => (
+            <div key={region} className="space-y-3">
+              <h3 className="text-lg font-semibold text-blue-200">{region}</h3>
+              <div className="grid gap-2">
+                {spots.map((spot) => (
                   <button
-                    onClick={signOut}
-                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg backdrop-blur-sm transition-all border border-white/20"
+                    key={spot.id}
+                    onClick={() => handleSpotChange(spot)}
+                    className={`text-left p-4 rounded-lg border transition-all ${
+                      currentSpot.id === spot.id
+                        ? 'bg-blue-600 border-blue-500 text-white'
+                        : 'bg-white/5 border-white/10 hover:bg-white/10 text-white hover:border-white/20'
+                    }`}
                   >
-                    Sign Out
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <div className="font-medium text-sm">{spot.name}</div>
+                        <div className="text-xs text-white/60 mt-1">{spot.type}</div>
+                        <div className="text-xs text-white/50 mt-1">{spot.description}</div>
+                      </div>
+                      {currentSpot.id === spot.id && (
+                        <div className="text-blue-200">
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
+                    </div>
                   </button>
-                </div>
-              ) : (
-                <button
-                  onClick={signInWithGoogle}
-                  className="px-4 py-2 bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 text-white font-medium rounded-lg transition-all shadow-lg shadow-blue-500/25"
-                >
-                  Sign in with Google
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-6xl mx-auto px-4 py-8">
-        {/* Location Selector - Premium Style with Ratings */}
-        <div className="mb-8">
-          <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-            <label className="block text-white mb-3 font-medium">
-              📍 Select Surf Spot
-            </label>
-            <select
-              value={selectedLocation.id}
-              onChange={(e) => {
-                const location = SURF_SPOTS.find((loc: any) => loc.id === e.target.value)
-                if (location) setSelectedLocation(location)
-              }}
-              className="w-full px-4 py-3 bg-white/10 border border-white/20 rounded-lg text-white backdrop-blur-sm focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all font-mono"
-            >
-              {SURF_SPOTS.map((location: any) => (
-                <option key={location.id} value={location.id} className="bg-slate-800">
-                  {location.name} - {location.region} {renderStars(getPersonalizedRating(location))}
-                </option>
-              ))}
-            </select>
-            
-            {/* Selected Spot Info with Personalized Rating */}
-            <div className="mt-3 space-y-2">
-              <p className="text-blue-200 text-sm">
-                {selectedLocation.description}
-              </p>
-              
-              {/* Personalized Rating Display */}
-              <div className="flex items-center gap-3 pt-2">
-                <div className="text-yellow-400 text-xl">
-                  {renderStars(getPersonalizedRating(selectedLocation))}
-                </div>
-                <div className="text-white/80 text-sm">
-                  <span className="font-medium">For You</span>
-                  <span className="text-white/60 ml-2 text-xs">
-                    (based on your preferences)
-                  </span>
-                </div>
-              </div>
-              
-              {/* Rating explanation */}
-              <p className="text-blue-200/80 text-xs italic">
-                {getPersonalizedRating(selectedLocation) >= 4 
-                  ? "Conditions match your sweet spot! Similar to sessions you've rated highly."
-                  : getPersonalizedRating(selectedLocation) === 3
-                  ? "Decent conditions for your skill level. Could be fun!"
-                  : "Not ideal for your preferences, but still surfable."}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Conditions Carousel - Mobile Swipeable */}
-        <div className="mb-8">
-          {loading ? (
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-12 border border-white/20">
-              <div className="text-center">
-                <div className="inline-flex items-center gap-2 text-blue-200">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-                  <span>Checking surf conditions...</span>
-                </div>
-              </div>
-            </div>
-          ) : surfData ? (
-            <div className="relative">
-              {/* Mobile Carousel View */}
-              <div className="md:hidden">
-                <div className="bg-white/10 backdrop-blur-md rounded-xl border border-white/20 overflow-hidden">
-                  <div className="p-6">
-                    {/* Wind Compass - Inline with main value */}
-                    {conditionCards[currentCardIndex].compass !== undefined && (
-                      <div className="float-right ml-4">
-                        <div className="relative w-24 h-24 bg-white/5 rounded-full border border-white/20">
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div 
-                              className="w-1 h-10 bg-white rounded-full"
-                              style={{ transform: `rotate(${conditionCards[currentCardIndex].compass}deg)` }}
-                            >
-                              <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[8px] border-b-white absolute -top-2 left-1/2 -translate-x-1/2"></div>
-                            </div>
-                          </div>
-                          <div className="absolute -top-1 left-1/2 -translate-x-1/2 text-[10px] text-white">N</div>
-                          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 text-[10px] text-white/60">S</div>
-                          <div className="absolute top-1/2 -right-1 -translate-y-1/2 text-[10px] text-white/60">E</div>
-                          <div className="absolute top-1/2 -left-1 -translate-y-1/2 text-[10px] text-white/60">W</div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Tide Graph - Inline with main value */}
-                    {conditionCards[currentCardIndex].showGraph && (
-                      <div className="float-right ml-4 w-40">
-                        <svg className="w-full h-20" viewBox="0 0 300 100">
-                          <path
-                            d={`M 0,50 Q 75,20 150,50 T 300,50`}
-                            fill="none"
-                            stroke="rgba(255,255,255,0.4)"
-                            strokeWidth="3"
-                          />
-                          <circle cx={currentHour * 12.5} cy="50" r="4" fill="white" />
-                        </svg>
-                        <div className="flex justify-between text-[10px] text-white/60 mt-1">
-                          <span>12a</span>
-                          <span>6a</span>
-                          <span>12p</span>
-                          <span>6p</span>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="text-xs text-blue-200 uppercase tracking-wider mb-2">
-                      {conditionCards[currentCardIndex].title}
-                    </div>
-                    {!conditionCards[currentCardIndex].customContent && (
-                      <>
-                        <div className="text-4xl font-bold text-white mb-1">
-                          {conditionCards[currentCardIndex].mainValue}
-                        </div>
-                        <div className="text-blue-200 mb-4">
-                          {conditionCards[currentCardIndex].subtitle}
-                        </div>
-                      </>
-                    )}
-                    
-                    {/* Custom Temperature Content */}
-                    {conditionCards[currentCardIndex].customContent && conditionCards[currentCardIndex].temps && (
-                      <div>
-                        {/* Water and Air Temps Side by Side */}
-                        <div className="flex items-center justify-around mb-4">
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xl transform -rotate-6 inline-block">🌊</span>
-                            <span className="text-2xl font-bold text-white">
-                              {conditionCards[currentCardIndex].temps.water.toFixed(0)}°c
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xl animate-pulse">☀️</span>
-                            <span className="text-2xl font-bold text-white">
-                              {conditionCards[currentCardIndex].temps.air.toFixed(0)}°c
-                            </span>
-                          </div>
-                        </div>
-                        
-                        {/* Wetsuit and SPF Recommendations - Aligned with other cards' details */}
-                        <div className="space-y-2">
-                          <div className="flex justify-between text-sm">
-                            <span className="text-white/60">Wear</span>
-                            <span className="text-white">
-                              {conditionCards[currentCardIndex].temps.recommendation}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-sm">
-                            <span className="text-white/60">Protection</span>
-                            <span className="text-white">
-                              SPF {Math.min(50, conditionCards[currentCardIndex].temps.uvIndex * 10)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Regular Details (for non-temperature cards) */}
-                    {!conditionCards[currentCardIndex].customContent && conditionCards[currentCardIndex].details && (
-                      <div className="space-y-2">
-                        {conditionCards[currentCardIndex].details.map((detail: any, index: number) => (
-                          <div key={index} className="flex justify-between text-sm">
-                            <span className="text-white/60">{detail.label}</span>
-                            <span className="text-white">
-                              {detail.value} {detail.direction || ''}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Carousel Controls */}
-                  <div className="flex items-center justify-between p-4 border-t border-white/20">
-                    <button onClick={prevCard} className="text-white/60 hover:text-white">
-                      ←
-                    </button>
-                    <div className="flex gap-2">
-                      {conditionCards.map((_, index) => (
-                        <div
-                          key={index}
-                          className={`w-2 h-2 rounded-full ${
-                            index === currentCardIndex ? 'bg-white' : 'bg-white/30'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <button onClick={nextCard} className="text-white/60 hover:text-white">
-                      →
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              {/* Desktop Grid View */}
-              <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-                {conditionCards.map((card: any, index: number) => (
-                  <div key={index} className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20">
-                    {/* Wind Compass - Inline for desktop */}
-                    {card.compass !== undefined && (
-                      <div className="float-right ml-2">
-                        <div className="relative w-16 h-16 bg-white/5 rounded-full border border-white/20">
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div 
-                              className="w-0.5 h-6 bg-white rounded-full"
-                              style={{ transform: `rotate(${card.compass}deg)` }}
-                            >
-                              <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[6px] border-b-white absolute -top-1.5 left-1/2 -translate-x-1/2"></div>
-                            </div>
-                          </div>
-                          <div className="text-[8px] text-white/60 absolute -top-0.5 left-1/2 -translate-x-1/2">N</div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Tide Graph - Inline for desktop */}
-                    {card.showGraph && (
-                      <div className="float-right ml-2 w-24">
-                        <svg className="w-full h-14" viewBox="0 0 300 100">
-                          <path
-                            d={`M 0,50 Q 75,20 150,50 T 300,50`}
-                            fill="none"
-                            stroke="rgba(255,255,255,0.4)"
-                            strokeWidth="2.5"
-                          />
-                          <circle cx={currentHour * 12.5} cy="50" r="3" fill="white" />
-                        </svg>
-                        <div className="flex justify-between text-[8px] text-white/60">
-                          <span>12a</span>
-                          <span>6a</span>
-                          <span>12p</span>
-                        </div>
-                      </div>
-                    )}
-                    
-                    <div className="text-xs text-blue-200 uppercase tracking-wider mb-2">
-                      {card.title}
-                    </div>
-                    {!card.customContent && (
-                      <>
-                        <div className="text-2xl font-bold text-white mb-1">
-                          {card.mainValue}
-                        </div>
-                        <div className="text-sm text-blue-200 mb-3">
-                          {card.subtitle}
-                        </div>
-                      </>
-                    )}
-                    
-                    <div className="clear-both"></div>
-                    
-                    {/* Custom Temperature Content for Desktop */}
-                    {card.customContent && card.temps && (
-                      <div>
-                        {/* Water and Air Temps Side by Side */}
-                        <div className="flex items-center justify-around mb-3">
-                          <div className="flex items-center gap-1">
-                            <span className="text-xl transform -rotate-6 inline-block">🌊</span>
-                            <span className="text-lg font-bold text-white">
-                              {card.temps.water.toFixed(0)}°c
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <span className="text-xl animate-pulse">☀️</span>
-                            <span className="text-lg font-bold text-white">
-                              {card.temps.air.toFixed(0)}°c
-                            </span>
-                          </div>
-                        </div>
-                        
-                        {/* Wetsuit and SPF Recommendations - Aligned with other cards' details */}
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-xs">
-                            <span className="text-white/60">Wear</span>
-                            <span className="text-white">
-                              {card.temps.recommendation}
-                            </span>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="text-white/60">Protection</span>
-                            <span className="text-white">
-                              SPF {Math.min(50, card.temps.uvIndex * 10)}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                    
-                    {/* Regular Details (for non-temperature cards) */}
-                    {!card.customContent && card.details && (
-                      <div className="space-y-1">
-                        {card.details.map((detail: any, idx: number) => (
-                          <div key={idx} className="flex justify-between text-xs">
-                            <span className="text-white/60">{detail.label}</span>
-                            <span className="text-white">
-                              {detail.value} {detail.direction || ''}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
                 ))}
               </div>
             </div>
-          ) : (
-            <div className="bg-white/10 backdrop-blur-md rounded-xl p-12 border border-white/20">
-              <div className="text-center">
-                <p className="text-red-400">Failed to load surf data</p>
-                <button 
-                  onClick={fetchSurfData}
-                  className="mt-4 px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-all border border-white/20"
-                >
-                  Try Again
-                </button>
-              </div>
-            </div>
-          )}
+          ))}
         </div>
 
-        {/* Action Buttons - Premium Style */}
-        <div className="grid md:grid-cols-2 gap-4 mb-8">
-          <button
-            onClick={() => router.push('/chat')}
-            className="group relative overflow-hidden bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 text-white font-semibold py-4 px-6 rounded-xl transition-all shadow-lg shadow-green-500/25"
-          >
-            <div className="relative z-10 flex items-center justify-center gap-2">
-              <span className="text-2xl">🤖</span>
-              <span>Ask Kai about conditions</span>
-            </div>
-          </button>
+        {/* No Results */}
+        {filteredSpots.length === 0 && (
+          <div className="text-center py-8">
+            <div className="text-white/60 mb-2">No spots found</div>
+            <div className="text-sm text-white/40">Try a different search term</div>
+          </div>
+        )}
+      </div>
+    )
+  }
 
-          {surfData && session && (
+  const renderForecastCanvas = () => {
+    if (!surfData) return <div className="p-8 text-center text-white/60">Loading conditions...</div>
+
+    const windDir = getDirectionFromDegrees(surfData.windDirection)
+    const swellDir = getDirectionFromDegrees(surfData.swellDirection)
+
+    return (
+      <div className="p-6 space-y-6">
+        <div className="text-center">
+          <h2 className="text-2xl font-bold text-white mb-2">{currentSpot.name}</h2>
+          <div className="text-blue-200">{currentSpot.type} • {currentSpot.region}</div>
+          <div className="text-sm text-blue-300 mt-1">{currentSpot.description}</div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          {/* Surf Card */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20">
+            <div className="text-xs text-blue-200 uppercase tracking-wider mb-2">Surf</div>
+            <div className="text-2xl font-bold text-white mb-1">
+              {surfData.waveHeight.toFixed(1)}m
+            </div>
+            <div className="text-sm text-blue-200 mb-3">{surfData.wavePeriod.toFixed(0)}s period</div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-white/60">Swell</span>
+                <span className="text-white">{swellDir}</span>
+              </div>
+              <div className="flex justify-between text-xs">
+                <span className="text-white/60">Direction</span>
+                <span className="text-white">{surfData.swellDirection.toFixed(0)}°</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Wind Card */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20">
+            <div className="text-xs text-blue-200 uppercase tracking-wider mb-2">Wind</div>
+            <div className="text-2xl font-bold text-white mb-1">
+              {surfData.windSpeed.toFixed(0)}km/h
+            </div>
+            <div className="text-sm text-blue-200 mb-3">{windDir}</div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-white/60">Direction</span>
+                <span className="text-white">{surfData.windDirection.toFixed(0)}°</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Temperature Card */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20">
+            <div className="text-xs text-blue-200 uppercase tracking-wider mb-2">Temperature</div>
+            <div className="flex items-center justify-around mb-1">
+              <div className="flex items-center gap-1">
+                <span className="text-lg">💧</span>
+                <span className="text-lg font-bold text-white">{surfData.waterTemp.toFixed(0)}°c</span>
+              </div>
+              <div className="flex items-center gap-1">
+                <span className="text-lg">☀️</span>
+                <span className="text-lg font-bold text-white">{surfData.temperature.toFixed(0)}°c</span>
+              </div>
+            </div>
+            <div className="text-sm text-blue-200 mb-3">2mm Wetsuit</div>
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs">
+                <span className="text-white/60">UV Protection</span>
+                <span className="text-white">SPF {Math.min(50, surfData.uvIndex * 10)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Spot Info Card */}
+          <div className="bg-white/10 backdrop-blur-md rounded-xl p-4 border border-white/20">
+            <div className="text-xs text-blue-200 uppercase tracking-wider mb-2">Spot Info</div>
+            <div className="space-y-2">
+              <div className="text-sm text-white font-medium">{currentSpot.type}</div>
+              <div className="text-xs text-blue-200">{currentSpot.region}</div>
+              <div className="text-xs text-white/80">{currentSpot.description}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  const renderSessionsCanvas = () => {
+    return (
+      <div className="p-6">
+        <div className="text-center mb-6">
+          <h2 className="text-2xl font-bold text-white mb-2">Session History</h2>
+          <div className="text-blue-200">Your surf sessions</div>
+        </div>
+        <div className="bg-white/10 backdrop-blur-md rounded-xl p-6 border border-white/20 text-center">
+          <div className="text-white/60 mb-4">Session history view coming soon!</div>
+          <div className="text-sm text-blue-200">
+            For now, chat with Kai to log your sessions conversationally.
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <div className="min-h-screen bg-slate-900 p-4 flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto"></div>
+        <p className="mt-2 text-white/60">Loading...</p>
+      </div>
+    </div>
+  }
+
+  return (
+    <div className="h-screen bg-slate-900 flex">
+      {/* Collapsible Left Sidebar - Like Claude */}
+      <div className={`${leftPanelOpen ? 'w-64' : 'w-12'} bg-slate-800 border-r border-slate-700 flex flex-col transition-all duration-300`}>
+        {/* Header with Hamburger Menu */}
+        <div className="p-3 border-b border-slate-700">
+          <div className="flex items-center justify-between">
+            {/* Hamburger Menu Button */}
             <button
-              onClick={logSession}
-              disabled={loggingSession}
-              className="group relative overflow-hidden bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600 disabled:from-gray-500 disabled:to-gray-600 text-white font-semibold py-4 px-6 rounded-xl transition-all shadow-lg shadow-blue-500/25 disabled:shadow-gray-500/25"
+              onClick={() => setLeftPanelOpen(!leftPanelOpen)}
+              className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-white transition-colors"
             >
-              <div className="relative z-10 flex items-center justify-center gap-2">
-                <span className="text-2xl">📊</span>
-                <span>{loggingSession ? 'Saving session...' : 'Log my last session'}</span>
-              </div>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
             </button>
+            
+            {/* Title and Sign Out - Only show when expanded */}
+            {leftPanelOpen && (
+              <>
+                <h1 className="text-white font-semibold">Nalu</h1>
+                <button
+                  onClick={() => supabase.auth.signOut()}
+                  className="text-slate-400 hover:text-white text-sm"
+                >
+                  Sign Out
+                </button>
+              </>
+            )}
+          </div>
+          {leftPanelOpen && (
+            <div className="text-sm text-slate-400 mt-1">{currentSpot.name}</div>
           )}
         </div>
 
-        {/* Footer */}
-        <footer className="mt-12 text-center">
-          <p className="text-blue-200/60 text-sm">
-            Nalu • AI Surf Intelligence • {new Date().getFullYear()}
-          </p>
-        </footer>
-      </main>
+        {/* Navigation Icons - Always show (collapsed or expanded) */}
+        <div className="p-2 space-y-1">
+          {!leftPanelOpen ? (
+            // Collapsed - Show only icons (Claude behavior)
+            <>
+              <button
+                onClick={() => setCanvasMode('locations')}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                  canvasMode === 'locations' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                }`}
+                title="Locations"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+
+              <button
+                onClick={() => setCanvasMode('sessions')}
+                className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
+                  canvasMode === 'sessions' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                }`}
+                title="Sessions"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+              </button>
+
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 cursor-not-allowed opacity-50"
+                disabled
+                title="Preferences (Coming Soon)"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </button>
+
+              <button
+                className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-500 cursor-not-allowed opacity-50"
+                disabled
+                title="Fitness (Coming Soon)"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </button>
+            </>
+          ) : (
+            // Expanded - Show full buttons with text
+            <>
+              <button
+                onClick={() => setCanvasMode('locations')}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                  canvasMode === 'locations' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                📍 Locations
+              </button>
+
+              <button
+                onClick={() => setCanvasMode('sessions')}
+                className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
+                  canvasMode === 'sessions' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                </svg>
+                📊 Sessions
+              </button>
+
+              <button
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-slate-500 cursor-not-allowed"
+                disabled
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                🎯 Preferences
+              </button>
+
+              <button
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-slate-500 cursor-not-allowed"
+                disabled
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                💪 Fitness
+              </button>
+            </>
+          )}
+        </div>
+
+        {/* Surf Spots List - Removed from sidebar */}
+      </div>
+
+      {/* Main Content Area - Always 50/50 Split */}
+      <div className="flex-1 flex">
+        {/* Chat Area - Always 50% */}
+        <div className="w-1/2 bg-slate-900 flex flex-col">
+          {/* Chat Messages */}
+          <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            {messages.map((message, index) => (
+              <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-sm px-4 py-3 rounded-lg ${
+                  message.role === 'user' 
+                    ? 'bg-blue-600 text-white' 
+                    : 'bg-slate-800 text-white'
+                }`}>
+                  {message.content}
+                </div>
+              </div>
+            ))}
+            {loading && (
+              <div className="flex justify-start">
+                <div className="bg-slate-800 text-white px-4 py-3 rounded-lg">
+                  Kai is thinking...
+                </div>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+          
+          {/* Chat Input */}
+          <div className="p-6 border-t border-slate-700">
+            <div className="flex gap-3">
+              <input
+                type="text"
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                placeholder="Ask Kai anything about surf..."
+                className="flex-1 px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+              <button
+                onClick={sendMessage}
+                disabled={loading || !inputMessage.trim()}
+                className="bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white px-6 py-3 rounded-lg font-medium transition-colors"
+              >
+                Send
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Canvas Area - Always 50% */}
+        <div className="w-1/2 bg-slate-800 border-l border-slate-700 overflow-y-auto">
+          {canvasMode === 'locations' && renderLocationsCanvas()}
+          {canvasMode === 'forecast' && renderForecastCanvas()}
+          {canvasMode === 'sessions' && renderSessionsCanvas()}
+          {canvasMode === 'chat' && (
+            <div className="p-6 flex items-center justify-center h-full">
+              <div className="text-center text-slate-400">
+                <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <p className="text-lg mb-2">Chat with Kai</p>
+                <p className="text-sm">Ask about surf conditions, log sessions, or plan trips</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
