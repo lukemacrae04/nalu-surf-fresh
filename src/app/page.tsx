@@ -423,9 +423,9 @@ export default function ChatFirstHomepage() {
   }
 
   return (
-    <div className="h-screen bg-slate-900 flex">
-      {/* Collapsible Left Sidebar - Like Claude */}
-      <div className={`${leftPanelOpen ? 'w-64' : 'w-12'} bg-slate-800 border-r border-slate-700 flex flex-col transition-all duration-300`}>
+    <div className="h-screen bg-slate-900 flex relative">
+      {/* Collapsible Left Sidebar - Overlay Mode */}
+      <div className={`fixed inset-y-0 left-0 z-50 ${leftPanelOpen ? 'w-64' : 'w-12'} bg-slate-800 border-r border-slate-700 flex flex-col transition-all duration-300`}>
         {/* Header with Hamburger Menu */}
         <div className="p-3 border-b border-slate-700">
           <div className="flex items-center justify-between">
@@ -563,10 +563,10 @@ export default function ChatFirstHomepage() {
         {/* Surf Spots List - Removed from sidebar */}
       </div>
 
-      {/* Main Content Area - Always 50/50 Split */}
-      <div className="flex-1 flex">
-        {/* Chat Area - Always 50% */}
-        <div className="w-1/2 bg-slate-900 flex flex-col">
+      {/* Main Content Area - Responsive Layout */}
+      <div className="flex-1 flex ml-12">
+        {/* Chat Area - Full width on mobile, 50% on desktop */}
+        <div className="flex-1 md:w-1/2 bg-slate-900 flex flex-col">
           {/* Chat Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {messages.map((message, index) => (
@@ -612,8 +612,26 @@ export default function ChatFirstHomepage() {
           </div>
         </div>
 
-        {/* Canvas Area - Always 50% */}
-        <div className="w-1/2 bg-slate-800 border-l border-slate-700 overflow-y-auto">
+        {/* Canvas Area - Overlay on mobile, side-by-side on desktop */}
+        <div className={`
+          ${canvasMode === 'chat' ? 'hidden md:flex' : 'fixed md:relative'}
+          ${canvasMode === 'chat' ? '' : 'inset-0 md:inset-auto'}
+          ${canvasMode === 'chat' ? '' : 'z-40 md:z-auto'}
+          ${canvasMode === 'chat' ? '' : 'ml-12 md:ml-0'}
+          md:w-1/2 bg-slate-800 border-l border-slate-700 overflow-y-auto
+        `}>
+          {/* Mobile Close Button */}
+          {canvasMode !== 'chat' && (
+            <button
+              onClick={() => setCanvasMode('chat')}
+              className="md:hidden absolute top-4 right-4 z-50 w-8 h-8 bg-slate-700 rounded-lg flex items-center justify-center text-white hover:bg-slate-600"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+          
           {canvasMode === 'locations' && renderLocationsCanvas()}
           {canvasMode === 'forecast' && renderForecastCanvas()}
           {canvasMode === 'sessions' && renderSessionsCanvas()}
