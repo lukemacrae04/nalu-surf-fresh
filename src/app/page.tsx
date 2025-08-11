@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '../supabase'
 import { useRouter } from 'next/navigation'
 
@@ -67,7 +67,7 @@ const SURF_LOCATIONS: SurfSpot[] = [
 ]
 
 export default function Home() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<{id: string, email?: string} | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
   const [loading, setLoading] = useState(false)
@@ -100,17 +100,7 @@ export default function Home() {
     initializeApp()
   }, [router])
 
-  // Fetch surf data when spot changes
-  useEffect(() => {
-    fetchSurfData()
-  }, [currentSpot])
-
-  // Auto-scroll to bottom of messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const fetchSurfData = async () => {
+  const fetchSurfData = useCallback(async () => {
     try {
       setDataLoading(true)
       const response = await fetch(`/api/surf?lat=${currentSpot.lat}&lng=${currentSpot.lng}`)
@@ -134,7 +124,17 @@ export default function Home() {
     } finally {
       setDataLoading(false)
     }
-  }
+  }, [currentSpot.lat, currentSpot.lng])
+
+  // Fetch surf data when spot changes
+  useEffect(() => {
+    fetchSurfData()
+  }, [fetchSurfData])
+
+  // Auto-scroll to bottom of messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   const sendMessage = async () => {
     console.log('🚀 sendMessage called with:', inputMessage)

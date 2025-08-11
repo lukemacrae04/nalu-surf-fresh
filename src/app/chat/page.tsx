@@ -184,6 +184,7 @@ export default function Chat() {
         }
       } else {
         const forecastKeywords = /tomorrow|next|later|should i surf/i
+        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         const isForecastRequest = forecastKeywords.test(userMessage)
         
         let conditionsContext = ""
