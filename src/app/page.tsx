@@ -13,181 +13,190 @@ interface SurfData {
   waterTemp: number
 }
 
-interface SurfSpot {
-  id: string
-  name: string
-  region: string
-  state: string
-  coordinates: [number, number]
-  breakType: string
-  description: string
-}
-
 interface Message {
   role: 'user' | 'assistant'
   content: string
 }
 
-export default function HomePage() {
-  const router = useRouter()
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  
-  // Mobile viewport optimization
-  useEffect(() => {
-    const viewport = document.querySelector('meta[name="viewport"]')
-    if (!viewport) {
-      const meta = document.createElement('meta')
-      meta.name = 'viewport'
-      meta.content = 'width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no'
-      document.head.appendChild(meta)
-    }
-  }, [])
+interface SurfSpot {
+  id: string
+  name: string
+  region: string
+  state: string
+  lat: number
+  lng: number
+  spots: string[]
+  description: string
+  breakType: string
+}
 
-  const [leftPanelOpen, setLeftPanelOpen] = useState(false)
-  const [canvasMode, setCanvasMode] = useState<'chat' | 'forecast' | 'sessions' | 'locations'>('chat')
-  const [searchTerm, setSearchTerm] = useState('')
-  const [surfData, setSurfData] = useState<SurfData | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: 'assistant',
-      content: "Hey! I'm Kai, your AI surf buddy. I can help you with surf conditions, log your sessions, plan trips, or suggest workouts for flat days. What would you like to know?"
-    }
-  ])
+const SURF_LOCATIONS: SurfSpot[] = [
+  {
+    id: 'byron-bay',
+    name: 'Byron Bay',
+    region: 'Northern Rivers',
+    state: 'NSW', 
+    lat: -28.6439,
+    lng: 153.6114,
+    spots: ['The Pass', 'The Wreck', 'Tallows', 'Wategos'],
+    description: 'World-class right-hand point break and consistent beach breaks',
+    breakType: 'Point & Beach'
+  },
+  {
+    id: 'gold-coast',
+    name: 'Gold Coast',
+    region: 'Gold Coast',
+    state: 'QLD',
+    lat: -28.0167,
+    lng: 153.4000,
+    spots: ['Superbank', 'Burleigh', 'Currumbin', 'Snapper'],
+    description: 'Legendary sandbar breaks and powerful point breaks',
+    breakType: 'Sandbar & Point'
+  },
+  {
+    id: 'sunshine-coast',
+    name: 'Sunshine Coast', 
+    region: 'Sunshine Coast',
+    state: 'QLD',
+    lat: -26.6500,
+    lng: 153.0667,
+    spots: ['Noosa', 'Tea Tree', 'Peregian', 'Coolum'],
+    description: 'Perfect point breaks and consistent beach breaks',
+    breakType: 'Point & Beach'
+  }
+]
+
+export default function Home() {
+  const [user, setUser] = useState<any>(null)
+  const [messages, setMessages] = useState<Message[]>([])
   const [inputMessage, setInputMessage] = useState('')
-  const [currentSpot, setCurrentSpot] = useState<SurfSpot>({
-    id: 'the-pass-byron',
-    name: 'The Pass, Byron Bay',
-    region: 'Byron Bay',
-    state: 'NSW',
-    coordinates: [-28.63764444, 153.62803],
-    breakType: 'Point Break',
-    description: 'World-class right-hand point break, perfect for longboards and performance surfing'
-  })
+  const [loading, setLoading] = useState(false)
+  const [leftPanelOpen, setLeftPanelOpen] = useState(false)
+  const [canvasMode, setCanvasMode] = useState<'chat' | 'locations' | 'forecast' | 'sessions'>('chat')
+  const [currentSpot, setCurrentSpot] = useState<SurfSpot>(SURF_LOCATIONS[0])
+  const [surfData, setSurfData] = useState<SurfData | null>(null)
+  const [dataLoading, setDataLoading] = useState(true)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  const router = useRouter()
 
-  // Individual surf spots with exact Surfline coordinates
-  const surfSpots: SurfSpot[] = [
-    // NSW
-    { id: 'manly-north-steyne', name: 'North Steyne, Manly', region: 'Sydney', state: 'NSW', coordinates: [-33.796, 151.2884], breakType: 'Beach Break', description: 'Consistent beach break in the heart of Sydney' },
-    { id: 'cronulla-point', name: 'Cronulla Point', region: 'Sydney', state: 'NSW', coordinates: [-34.058, 151.156], breakType: 'Point Break', description: 'Rocky point break south of Sydney' },
-    { id: 'the-pass-byron', name: 'The Pass, Byron Bay', region: 'Byron Bay', state: 'NSW', coordinates: [-28.63764444, 153.62803], breakType: 'Point Break', description: 'World-class right-hand point break' },
-    { id: 'wategos-byron', name: 'Wategos, Byron Bay', region: 'Byron Bay', state: 'NSW', coordinates: [-28.638, 153.632], breakType: 'Beach Break', description: 'Protected beach break, good for beginners' },
-    { id: 'lennox-head', name: 'Lennox Head', region: 'Ballina', state: 'NSW', coordinates: [-28.787, 153.587], breakType: 'Point Break', description: 'Powerful right-hand point break' },
-    { id: 'angourie', name: 'Angourie Point', region: 'Yamba', state: 'NSW', coordinates: [-29.459, 153.372], breakType: 'Point Break', description: 'Classic right-hand point break' },
-    
-    // QLD  
-    { id: 'superbank', name: 'Superbank', region: 'Gold Coast', state: 'QLD', coordinates: [-28.025, 153.435], breakType: 'Point Break', description: 'World tour venue, perfect barrels' },
-    { id: 'burleigh-heads', name: 'Burleigh Heads', region: 'Gold Coast', state: 'QLD', coordinates: [-28.103, 153.450], breakType: 'Point Break', description: 'Iconic Gold Coast point break' },
-    { id: 'currumbin', name: 'Currumbin', region: 'Gold Coast', state: 'QLD', coordinates: [-28.133, 153.486], breakType: 'Point Break', description: 'Consistent point break with long rides' },
-    { id: 'snapper-rocks', name: 'Snapper Rocks', region: 'Gold Coast', state: 'QLD', coordinates: [-28.018, 153.434], breakType: 'Point Break', description: 'World-class right-hand point break' },
-    { id: 'peregian', name: 'Peregian Beach', region: 'Sunshine Coast', state: 'QLD', coordinates: [-26.480171870235186, 153.0989], breakType: 'Beach Break', description: 'Consistent beach break on Sunshine Coast' },
-    { id: 'noosa-first-point', name: 'First Point, Noosa', region: 'Sunshine Coast', state: 'QLD', coordinates: [-26.398, 153.087], breakType: 'Point Break', description: 'Perfect longboard waves' },
-    { id: 'caloundra', name: 'Kings Beach, Caloundra', region: 'Sunshine Coast', state: 'QLD', coordinates: [-26.799, 153.139], breakType: 'Beach Break', description: 'Protected beach break' },
-    
-    // VIC
-    { id: 'bells-beach', name: 'Bells Beach', region: 'Surf Coast', state: 'VIC', coordinates: [-38.369, 144.283], breakType: 'Point Break', description: 'Home of the Rip Curl Pro, powerful waves' },
-    { id: 'winki-pop', name: 'Winki Pop', region: 'Surf Coast', state: 'VIC', coordinates: [-38.364, 144.278], breakType: 'Point Break', description: 'High-performance right-hand point' },
-    { id: 'johanna', name: 'Johanna Beach', region: 'Great Ocean Road', state: 'VIC', coordinates: [-38.752, 143.469], breakType: 'Beach Break', description: 'Remote beach break, powerful waves' },
-    { id: 'thirteenth-beach', name: '13th Beach', region: 'Surf Coast', state: 'VIC', coordinates: [-38.233, 144.655], breakType: 'Beach Break', description: 'Consistent beach break near Geelong' },
-    
-    // WA
-    { id: 'margaret-river-main-break', name: 'Main Break, Margaret River', region: 'Margaret River', state: 'WA', coordinates: [-33.953, 115.071], breakType: 'Reef Break', description: 'World tour venue, powerful reef break' },
-    { id: 'the-box-margaret-river', name: 'The Box, Margaret River', region: 'Margaret River', state: 'WA', coordinates: [-33.948, 115.066], breakType: 'Reef Break', description: 'Heavy, shallow reef break' },
-    { id: 'cottesloe', name: 'Cottesloe Beach', region: 'Perth', state: 'WA', coordinates: [-31.998, 115.759], breakType: 'Beach Break', description: 'Perth city beach break' },
-    { id: 'trigg', name: 'Trigg Beach', region: 'Perth', state: 'WA', coordinates: [-31.869, 115.750], breakType: 'Beach Break', description: 'Consistent Perth beach break' },
-    
-    // SA
-    { id: 'middleton', name: 'Middleton Point', region: 'Fleurieu Peninsula', state: 'SA', coordinates: [-35.508, 138.766], breakType: 'Point Break', description: 'Reliable right-hand point break' },
-    { id: 'parsons', name: 'Parsons Beach', region: 'Fleurieu Peninsula', state: 'SA', coordinates: [-35.615, 138.497], breakType: 'Beach Break', description: 'Powerful beach break' },
-    
-    // TAS
-    { id: 'clifton-beach', name: 'Clifton Beach', region: 'Hobart', state: 'TAS', coordinates: [-42.945, 147.527], breakType: 'Beach Break', description: 'Consistent beach break near Hobart' }
-  ]
-
-  // Quick action handlers
-  const handleQuickAction = (action: string) => {
-    const prompts = {
-      'log-session': "I just finished a surf session and want to log it",
-      'check-conditions': "How are the surf conditions right now?",
-      'change-spot': "I want to check a different surf spot"
-    }
-    
-    setInputMessage(prompts[action as keyof typeof prompts])
-    // Auto-send the message
-    setTimeout(() => sendMessage(), 100)
-  }
-
-  const sendMessage = async () => {
-    if (!inputMessage.trim() || loading) return
-
-    const userMessage = inputMessage.trim()
-    setInputMessage('')
-    setMessages(prev => [...prev, { role: 'user', content: userMessage }])
-    setLoading(true)
-
-    try {
-      // Check if user is asking about conditions
-      if (userMessage.toLowerCase().includes('condition') || 
-          userMessage.toLowerCase().includes('surf') ||
-          userMessage.toLowerCase().includes('waves')) {
-        setCanvasMode('forecast')
-        await fetchSurfData()
+  // Initialize user and welcome message
+  useEffect(() => {
+    const initializeApp = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) {
+        router.push('/login')
+        return
       }
-
-      // Simple AI response
-      let response = `Thanks for your message: "${userMessage}". `
+      setUser(user)
       
-      if (userMessage.toLowerCase().includes('session') && userMessage.toLowerCase().includes('log')) {
-        response += `Great! I'd love to help you log your session. Can you tell me: 
-        
-1. Which spot did you surf?
-2. How long was your session?  
-3. How would you rate the waves (1-10)?
-4. What board did you use?
-5. Any highlights or notes?`
-      } else if (userMessage.toLowerCase().includes('condition')) {
-        response += `I can see the current conditions for ${currentSpot.name}. The surf data shows ${surfData?.waveHeight}m waves. How can I help you interpret these conditions?`
-      } else if (userMessage.toLowerCase().includes('workout') || userMessage.toLowerCase().includes('flat')) {
-        response += `Perfect timing for some surf fitness! Here's what I recommend:
-
-🏋️ **Surf Strength Circuit (30 mins):**
-- Pop-up practice: 3 sets of 10
-- Paddle simulation: 5 minutes
-- Core stability holds: 3 x 30 seconds
-- Balance board work: 10 minutes
-
-Would you like me to guide you through any specific exercises?`
-      } else {
-        response += `I'm here to help with surf conditions, session logging, trip planning, and surf fitness. What specific information can I provide?`
+      // Add welcome message
+      const welcomeMessage: Message = {
+        role: 'assistant',
+        content: `Hey! I'm Kai, your AI surf buddy. I can help you with surf conditions, log your sessions, plan trips, or suggest what to do on flat days. Just ask me anything about surfing! What would you like to know?`
       }
-
-      setMessages(prev => [...prev, { role: 'assistant', content: response }])
-
-    } catch (error) {
-      setMessages(prev => [...prev, { 
-        role: 'assistant', 
-        content: 'Sorry, I had trouble processing that. Can you try again?' 
-      }])
-    } finally {
-      setLoading(false)
+      setMessages([welcomeMessage])
     }
-  }
+    
+    initializeApp()
+  }, [router])
+
+  // Fetch surf data when spot changes
+  useEffect(() => {
+    fetchSurfData()
+  }, [currentSpot])
+
+  // Auto-scroll to bottom of messages
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [messages])
 
   const fetchSurfData = async () => {
     try {
-      setLoading(true)
-      const [lat, lng] = currentSpot.coordinates
-      
-      const response = await fetch(`/api/surf-data?lat=${lat}&lng=${lng}`)
+      setDataLoading(true)
+      const response = await fetch(`/api/surf?lat=${currentSpot.lat}&lng=${currentSpot.lng}`)
       const data = await response.json()
       
-      if (data.success) {
-        setSurfData(data.data)
+      if (data.hours && data.hours.length > 0) {
+        const current = data.hours[0]
+        setSurfData({
+          waveHeight: current.waveHeight?.sg || 0,
+          wavePeriod: current.wavePeriod?.sg || 0,
+          windSpeed: current.windSpeed?.sg || 0,
+          windDirection: current.windDirection?.sg || 0,
+          temperature: current.airTemperature?.sg || 20,
+          waterTemp: current.waterTemperature?.sg || 22
+        })
+      } else {
+        console.error('No surf data available')
       }
     } catch (error) {
       console.error('Error fetching surf data:', error)
     } finally {
+      setDataLoading(false)
+    }
+  }
+
+  const sendMessage = async () => {
+    console.log('🚀 sendMessage called with:', inputMessage)
+    
+    if (!inputMessage.trim() || loading) {
+      console.log('⛔ Early return - empty message or loading')
+      return
+    }
+
+    const userMessage = inputMessage.trim()
+    setInputMessage('')
+    setLoading(true)
+
+    // Add user message immediately
+    setMessages(prev => [...prev, { role: 'user', content: userMessage }])
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          message: userMessage,
+          conditionsContext: surfData ? 
+            `Current ${currentSpot.name} conditions: ${surfData.waveHeight.toFixed(1)}m waves at ${surfData.wavePeriod.toFixed(0)}s with ${surfData.windSpeed.toFixed(0)}km/h wind.` 
+            : ''
+        })
+      })
+
+      const data = await response.json()
+      const responseText = data.response || "Sorry mate, having some technical issues. Try again?"
+
+      console.log('📤 Full response content:', responseText)
+      console.log('📏 Response length:', responseText.length)
+      console.log('🔤 Response type:', typeof responseText)
+      
+      // FIXED LINE 196: Clean setMessages call without complex callback
+      setMessages(prev => [...prev, { role: 'assistant', content: responseText }])
+      
+    } catch (error) {
+      console.error('💥 Chat error:', error)
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: 'Sorry mate, having trouble processing that. Can you try again?'
+      }])
+    } finally {
       setLoading(false)
+      console.log('✅ sendMessage completed')
+    }
+  }
+
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case 'log-session':
+        setInputMessage("I just finished a surf session at " + currentSpot.name + ". ")
+        break
+      case 'check-conditions':
+        setInputMessage("How's the surf looking right now?")
+        break
+      case 'change-location':
+        setCanvasMode('locations')
+        setLeftPanelOpen(true)
+        break
     }
   }
 
@@ -195,55 +204,23 @@ Would you like me to guide you through any specific exercises?`
     setCurrentSpot(spot)
     setCanvasMode('forecast')
     setLeftPanelOpen(false)
-    
-    // Add system message about spot change
-    setMessages(prev => [...prev, {
-      role: 'assistant',
-      content: `Switched to ${spot.name}. This is a ${spot.breakType.toLowerCase()} in ${spot.region}, ${spot.state}. ${spot.description}. Let me fetch the latest conditions...`
-    }])
-    
-    // Fetch new data
-    setTimeout(() => fetchSurfData(), 500)
   }
 
-  // Filter spots for search
-  const filteredSpots = surfSpots.filter(spot =>
-    spot.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    spot.region.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    spot.state.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  // Group spots by state
-  const groupedSpots = filteredSpots.reduce((groups, spot) => {
-    const state = spot.state
-    if (!groups[state]) groups[state] = []
-    groups[state].push(spot)
-    return groups
-  }, {} as Record<string, SurfSpot[]>)
-
-  useEffect(() => {
-    fetchSurfData()
-  }, [currentSpot])
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
-
-  const formatWindDirection = (degrees: number) => {
+  const formatWindDirection = (degrees: number): string => {
     const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
     const index = Math.round(degrees / 22.5) % 16
     return directions[index]
   }
 
   return (
-    <div className="h-screen bg-slate-900 flex relative">
-      {/* Collapsible Left Sidebar - Deep Sea Design */}
-      <div className={`fixed inset-y-0 left-0 z-50 ${leftPanelOpen ? 'w-64' : 'w-12'} bg-slate-800 border-r border-slate-700 flex flex-col transition-all duration-300`}>
-        {/* Header - Clean spacing */}
-        <div className="p-3 border-b border-slate-700">
+    <div className="h-screen bg-slate-900 flex overflow-hidden">
+      {/* Left Sidebar - Claude Style */}
+      <div className={`${leftPanelOpen ? 'w-64' : 'w-12'} bg-slate-800/90 backdrop-blur-sm border-r border-slate-700/50 flex flex-col transition-all duration-300 ease-in-out relative z-50`}>
+        {/* Menu Toggle */}
+        <div className="p-2">
           <button
             onClick={() => setLeftPanelOpen(!leftPanelOpen)}
-            className="w-6 h-6 flex items-center justify-center text-slate-400 hover:text-white transition-colors duration-300"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors duration-300"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -251,9 +228,9 @@ Would you like me to guide you through any specific exercises?`
           </button>
         </div>
 
-        {/* Navigation Icons - Matching chat action style */}
+        {/* Navigation Icons - Consistent simple outline style */}
         <div className="flex-1 p-2 space-y-1">
-          {/* Location Icon - Exact same as chat action */}
+          {/* Location Icon - Simple map pin */}
           <button
             onClick={() => setCanvasMode('locations')}
             className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors duration-300 ${
@@ -274,7 +251,7 @@ Would you like me to guide you through any specific exercises?`
             }`}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
             </svg>
           </button>
 
@@ -345,38 +322,30 @@ Would you like me to guide you through any specific exercises?`
                 <div className={`max-w-[85%] px-5 py-4 rounded-lg ${
                   message.role === 'user' 
                     ? 'bg-blue-800 text-white' 
-                    : 'bg-slate-800 text-white border border-slate-700'
+                    : 'bg-slate-700 border border-slate-600 text-slate-100'
                 }`}>
-                  <div className="whitespace-pre-wrap leading-relaxed">{message.content}</div>
+                  <div className="text-sm leading-relaxed">{message.content}</div>
                 </div>
               </div>
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-slate-800 text-slate-300 px-5 py-4 rounded-lg border border-slate-700">
-                  Kai is thinking...
+                <div className="bg-slate-700 border border-slate-600 text-slate-300 px-5 py-4 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                    <span className="ml-2 text-sm">Kai is thinking...</span>
+                  </div>
                 </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
-
-          {/* Chat Input - Deep Sea Blue accent */}
-          <div className="p-6 border-t border-slate-700 bg-slate-900">
-            {/* Text Input - Full width top row */}
-            <div className="mb-4">
-              <input
-                type="text"
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                placeholder="Ask Kai anything..."
-                className="w-full px-4 py-4 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all duration-300"
-              />
-            </div>
-            
-            {/* Bottom Row: Quick Actions (left) + Send Button (right) */}
-            <div className="flex justify-between items-center">
+          
+          {/* Chat Input - Expanded for mobile optimization */}
+          <div className="border-t border-slate-700/50 p-6">
+            <div className="space-y-4">
               {/* Quick Action Buttons - Consistent icon sizing */}
               <div className="flex gap-2">
                 <button
@@ -398,9 +367,9 @@ Would you like me to guide you through any specific exercises?`
                   </svg>
                 </button>
                 <button
-                  onClick={() => handleQuickAction('change-spot')}
+                  onClick={() => handleQuickAction('change-location')}
                   className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm text-white transition-colors duration-300"
-                  title="Change Spot"
+                  title="Change Location"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
@@ -408,139 +377,125 @@ Would you like me to guide you through any specific exercises?`
                   </svg>
                 </button>
               </div>
-              
-              {/* Send Button - Deep Sea Blue */}
-              <button
-                onClick={sendMessage}
-                disabled={loading || !inputMessage.trim()}
-                className="bg-blue-800 hover:bg-blue-900 disabled:bg-blue-300 disabled:cursor-not-allowed text-white px-8 py-2 rounded-lg font-medium transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-blue-800 focus:ring-offset-2 focus:ring-offset-slate-900"
-              >
-                Send
-              </button>
+
+              {/* Message Input */}
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={inputMessage}
+                  onChange={(e) => setInputMessage(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                  placeholder="Message Kai..."
+                  className="flex-1 px-4 py-3 bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors duration-300"
+                />
+                <button
+                  onClick={sendMessage}
+                  disabled={loading || !inputMessage.trim()}
+                  className="bg-blue-800 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors duration-200 font-medium"
+                >
+                  Send
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Canvas Area - Clean content presentation */}
-        <div className={`
-          ${canvasMode === 'chat' ? 'hidden md:flex' : 'fixed md:relative'}
-          ${canvasMode === 'chat' ? '' : 'inset-0 md:inset-auto'}
-          md:w-1/2 bg-slate-800 flex flex-col z-30
-        `}>
-          {/* Mobile Close Button */}
-          {canvasMode !== 'chat' && (
-            <button
-              onClick={() => setCanvasMode('chat')}
-              className="md:hidden absolute top-6 right-6 z-40 w-10 h-10 bg-slate-700 hover:bg-slate-600 rounded-full flex items-center justify-center text-white transition-colors duration-300"
-            >
-              ✕
-            </button>
-          )}
+        {/* Canvas Area - Context display */}
+        {canvasMode !== 'chat' && (
+          <div className="hidden md:flex md:w-1/2 bg-slate-800 border-l border-slate-700/50">
+            {/* Locations Canvas */}
+            {canvasMode === 'locations' && (
+              <div className="flex-1 p-8 overflow-y-auto">
+                <div className="mb-8">
+                  <h2 className="text-2xl font-semibold text-white mb-2">Surf Locations</h2>
+                  <p className="text-slate-400">Choose your surf spot to get conditions and chat with Kai</p>
+                </div>
 
-          {/* Location Selector Canvas */}
-          {canvasMode === 'locations' && (
-            <div className="flex-1 p-8 overflow-y-auto">
-              <h2 className="text-2xl font-semibold text-white mb-6">Select Surf Spot</h2>
-              
-              {/* Search - Improved styling */}
-              <div className="mb-8">
-                <input
-                  type="text"
-                  placeholder="Search spots..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-all duration-300"
-                />
-              </div>
-
-              {/* Grouped Spots - Better spacing */}
-              <div className="space-y-8">
-                {Object.entries(groupedSpots).map(([state, spots]) => (
-                  <div key={state}>
-                    <h3 className="text-lg font-semibold text-blue-400 mb-4">{state}</h3>
-                    <div className="space-y-3">
-                      {spots.map((spot) => (
+                <div className="space-y-6">
+                  {SURF_LOCATIONS.map((location) => (
+                    <div key={location.id} className="space-y-2">
+                      <h3 className="text-lg font-medium text-white">{location.region}, {location.state}</h3>
+                      <div className="grid gap-3">
                         <button
-                          key={spot.id}
-                          onClick={() => handleSpotChange(spot)}
-                          className={`w-full text-left p-5 rounded-lg border transition-all duration-300 ${
-                            currentSpot.id === spot.id
+                          onClick={() => handleSpotChange(location)}
+                          className={`p-4 rounded-lg border transition-all text-left ${
+                            currentSpot.id === location.id
                               ? 'bg-blue-800 border-blue-700 text-white'
                               : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600 hover:border-slate-500'
                           }`}
                         >
-                          <div className="font-medium text-white mb-1">{spot.name}</div>
-                          <div className="text-sm text-slate-400 mb-2">{spot.region} • {spot.breakType}</div>
-                          <div className="text-xs text-slate-500 leading-relaxed">{spot.description}</div>
+                          <div className="font-medium text-white mb-1">{location.name}</div>
+                          <div className="text-sm text-slate-400 mb-2">{location.region} • {location.breakType}</div>
+                          <div className="text-xs text-slate-500 leading-relaxed">{location.description}</div>
                         </button>
-                      ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Forecast Canvas */}
+            {canvasMode === 'forecast' && (
+              <div className="flex-1 p-8 overflow-y-auto">
+                <div className="mb-8">
+                  <h2 className="text-2xl font-semibold text-white mb-2">{currentSpot.name}</h2>
+                  <p className="text-slate-400 mb-1">{currentSpot.region}, {currentSpot.state} • {currentSpot.breakType}</p>
+                  <p className="text-sm text-slate-500 leading-relaxed">{currentSpot.description}</p>
+                </div>
+
+                {dataLoading ? (
+                  <div className="bg-slate-700 rounded-lg p-12 text-center">
+                    <div className="text-slate-400">Loading conditions...</div>
+                  </div>
+                ) : surfData ? (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Wave Height */}
+                    <div className="bg-slate-700 border border-slate-600 rounded-lg p-6">
+                      <div className="text-xs text-slate-400 uppercase tracking-wide mb-3">Wave Height</div>
+                      <div className="text-3xl font-semibold text-white mb-2">{surfData.waveHeight.toFixed(1)}m</div>
+                      <div className="text-sm text-slate-400">Period: {surfData.wavePeriod.toFixed(0)}s</div>
+                    </div>
+
+                    {/* Wind */}
+                    <div className="bg-slate-700 border border-slate-600 rounded-lg p-6">
+                      <div className="text-xs text-slate-400 uppercase tracking-wide mb-3">Wind</div>
+                      <div className="text-3xl font-semibold text-white mb-2">{surfData.windSpeed.toFixed(0)} km/h</div>
+                      <div className="text-sm text-slate-400">{formatWindDirection(surfData.windDirection)}</div>
+                    </div>
+
+                    {/* Air Temperature */}
+                    <div className="bg-slate-700 border border-slate-600 rounded-lg p-6">
+                      <div className="text-xs text-slate-400 uppercase tracking-wide mb-3">Air Temp</div>
+                      <div className="text-3xl font-semibold text-white">{surfData.temperature.toFixed(0)}°C</div>
+                    </div>
+
+                    {/* Water Temperature */}
+                    <div className="bg-slate-700 border border-slate-600 rounded-lg p-6">
+                      <div className="text-xs text-slate-400 uppercase tracking-wide mb-3">Water Temp</div>
+                      <div className="text-3xl font-semibold text-white">{surfData.waterTemp.toFixed(0)}°C</div>
                     </div>
                   </div>
-                ))}
+                ) : (
+                  <div className="bg-slate-700 border border-slate-600 rounded-lg p-12 text-center">
+                    <div className="text-slate-400">No surf data available</div>
+                  </div>
+                )}
               </div>
-            </div>
-          )}
+            )}
 
-          {/* Forecast Canvas */}
-          {canvasMode === 'forecast' && (
-            <div className="flex-1 p-8 overflow-y-auto">
-              <div className="mb-8">
-                <h2 className="text-2xl font-semibold text-white mb-2">{currentSpot.name}</h2>
-                <p className="text-slate-400 mb-1">{currentSpot.region}, {currentSpot.state} • {currentSpot.breakType}</p>
-                <p className="text-sm text-slate-500 leading-relaxed">{currentSpot.description}</p>
-              </div>
-
-              {loading ? (
-                <div className="bg-slate-700 rounded-lg p-12 text-center">
-                  <div className="text-slate-400">Loading conditions...</div>
-                </div>
-              ) : surfData ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Wave Height */}
-                  <div className="bg-slate-700 border border-slate-600 rounded-lg p-6">
-                    <div className="text-xs text-slate-400 uppercase tracking-wide mb-3">Wave Height</div>
-                    <div className="text-3xl font-semibold text-white mb-2">{surfData.waveHeight.toFixed(1)}m</div>
-                    <div className="text-sm text-slate-400">Period: {surfData.wavePeriod.toFixed(0)}s</div>
-                  </div>
-
-                  {/* Wind */}
-                  <div className="bg-slate-700 border border-slate-600 rounded-lg p-6">
-                    <div className="text-xs text-slate-400 uppercase tracking-wide mb-3">Wind</div>
-                    <div className="text-3xl font-semibold text-white mb-2">{surfData.windSpeed.toFixed(0)} km/h</div>
-                    <div className="text-sm text-slate-400">{formatWindDirection(surfData.windDirection)}</div>
-                  </div>
-
-                  {/* Air Temperature */}
-                  <div className="bg-slate-700 border border-slate-600 rounded-lg p-6">
-                    <div className="text-xs text-slate-400 uppercase tracking-wide mb-3">Air Temp</div>
-                    <div className="text-3xl font-semibold text-white">{surfData.temperature.toFixed(0)}°C</div>
-                  </div>
-
-                  {/* Water Temperature */}
-                  <div className="bg-slate-700 border border-slate-600 rounded-lg p-6">
-                    <div className="text-xs text-slate-400 uppercase tracking-wide mb-3">Water Temp</div>
-                    <div className="text-3xl font-semibold text-white">{surfData.waterTemp.toFixed(0)}°C</div>
-                  </div>
-                </div>
-              ) : (
+            {/* Sessions Canvas */}
+            {canvasMode === 'sessions' && (
+              <div className="flex-1 p-8 overflow-y-auto">
+                <h2 className="text-2xl font-semibold text-white mb-8">Session History</h2>
                 <div className="bg-slate-700 border border-slate-600 rounded-lg p-12 text-center">
-                  <div className="text-slate-400">No surf data available</div>
+                  <div className="text-slate-400 mb-3">No sessions logged yet</div>
+                  <div className="text-sm text-slate-500">Start a conversation with Kai to log your first session!</div>
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Sessions Canvas */}
-          {canvasMode === 'sessions' && (
-            <div className="flex-1 p-8 overflow-y-auto">
-              <h2 className="text-2xl font-semibold text-white mb-8">Session History</h2>
-              <div className="bg-slate-700 border border-slate-600 rounded-lg p-12 text-center">
-                <div className="text-slate-400 mb-3">No sessions logged yet</div>
-                <div className="text-sm text-slate-500">Start a conversation with Kai to log your first session!</div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   )
