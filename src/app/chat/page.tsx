@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { supabase } from '../supabase.'
+import { supabase } from '../../supabase'  // ← Correct path for chat page
 import { useRouter } from 'next/navigation'
 
 interface SurfData {
