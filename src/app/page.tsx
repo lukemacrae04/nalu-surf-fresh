@@ -13,71 +13,105 @@ interface SurfData {
   waterTemp: number
 }
 
+interface SurfSpot {
+  id: string
+  name: string
+  lat: number
+  lng: number
+  region: string
+  state: string
+  breakType: string
+  description: string
+}
+
 interface Message {
   role: 'user' | 'assistant'
   content: string
 }
 
-interface SurfSpot {
-  id: string
-  name: string
-  region: string
-  state: string
-  lat: number
-  lng: number
-  spots: string[]
-  description: string
-  breakType: string
-}
-
-const SURF_LOCATIONS: SurfSpot[] = [
-  {
-    id: 'byron-bay',
-    name: 'Byron Bay',
-    region: 'Northern Rivers',
-    state: 'NSW', 
-    lat: -28.6439,
-    lng: 153.6114,
-    spots: ['The Pass', 'The Wreck', 'Tallows', 'Wategos'],
-    description: 'World-class right-hand point break and consistent beach breaks',
-    breakType: 'Point & Beach'
-  },
-  {
-    id: 'gold-coast',
-    name: 'Gold Coast',
-    region: 'Gold Coast',
-    state: 'QLD',
-    lat: -28.0167,
-    lng: 153.4000,
-    spots: ['Superbank', 'Burleigh', 'Currumbin', 'Snapper'],
-    description: 'Legendary sandbar breaks and powerful point breaks',
-    breakType: 'Sandbar & Point'
-  },
-  {
-    id: 'sunshine-coast',
-    name: 'Sunshine Coast', 
-    region: 'Sunshine Coast',
-    state: 'QLD',
-    lat: -26.6500,
-    lng: 153.0667,
-    spots: ['Noosa', 'Tea Tree', 'Peregian', 'Coolum'],
-    description: 'Perfect point breaks and consistent beach breaks',
-    breakType: 'Point & Beach'
-  }
-]
-
-export default function Home() {
+export default function HomePage() {
+  const router = useRouter()
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+  
+  // State management
   const [user, setUser] = useState<{id: string, email?: string} | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<Message[]>([
+    { role: 'assistant', content: "G'day! I'm Kai, your AI surf coach. I can help you check conditions, log sessions, or plan your next surf. What's on your mind?" }
+  ])
   const [inputMessage, setInputMessage] = useState('')
   const [loading, setLoading] = useState(false)
   const [leftPanelOpen, setLeftPanelOpen] = useState(false)
   const [canvasMode, setCanvasMode] = useState<'chat' | 'locations' | 'forecast' | 'sessions'>('chat')
-  const [currentSpot, setCurrentSpot] = useState<SurfSpot>(SURF_LOCATIONS[0])
+  const [currentSpot, setCurrentSpot] = useState<SurfSpot>({
+    id: 'byron-bay',
+    name: 'Byron Bay',
+    lat: -28.6439,
+    lng: 153.6114,
+    region: 'Byron Bay',
+    state: 'NSW',
+    breakType: 'Beach Break',
+    description: 'Australia\'s most easterly point offers consistent waves and a laid-back vibe.'
+  })
   const [surfData, setSurfData] = useState<SurfData | null>(null)
-  const [dataLoading, setDataLoading] = useState(true)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const router = useRouter()
+  const [dataLoading, setDataLoading] = useState(false)
+
+  // Surf spots data
+  const surfSpots = [
+    {
+      id: 'byron-bay',
+      name: 'Byron Bay',
+      lat: -28.6439,
+      lng: 153.6114,
+      region: 'Byron Bay',
+      state: 'NSW',
+      breakType: 'Beach Break',
+      description: 'Australia\'s most easterly point offers consistent waves and a laid-back vibe.'
+    },
+    {
+      id: 'bells-beach',
+      name: 'Bells Beach',
+      lat: -38.3722,
+      lng: 144.2844,
+      region: 'Surf Coast',
+      state: 'VIC',
+      breakType: 'Point Break',
+      description: 'Home of the Rip Curl Pro, this iconic right-hand point break delivers world-class waves.'
+    },
+    {
+      id: 'superbank',
+      name: 'Superbank',
+      lat: -28.1667,
+      lng: 153.5333,
+      region: 'Gold Coast',
+      state: 'QLD',
+      breakType: 'Sand Bottom Point',
+      description: 'The world\'s longest man-made wave, offering barrels and performance sections.'
+    }
+  ]
+
+  // Fetch surf data
+  const fetchSurfData = useCallback(async () => {
+    try {
+      setDataLoading(true)
+      const response = await fetch(`/api/surf?lat=${currentSpot.lat}&lng=${currentSpot.lng}`)
+      const data = await response.json()
+      
+      if (data.hours && data.hours[0]) {
+        setSurfData({
+          waveHeight: data.hours[0].waveHeight?.[0] || 0,
+          wavePeriod: data.hours[0].wavePeriod?.[0] || 0,
+          windSpeed: data.hours[0].windSpeed?.[0] || 0,
+          windDirection: data.hours[0].windDirection?.[0] || 0,
+          temperature: data.hours[0].airTemperature?.[0] || 20,
+          waterTemp: data.hours[0].waterTemperature?.[0] || 18
+        })
+      }
+    } catch (error) {
+      console.error('Error fetching surf data:', error)
+    } finally {
+      setDataLoading(false)
+    }
+  }, [currentSpot])
 
   // Initialize user and welcome message
   useEffect(() => {
@@ -88,348 +122,338 @@ export default function Home() {
         return
       }
       setUser(user)
-      
-      // Add welcome message
-      const welcomeMessage: Message = {
-        role: 'assistant',
-        content: `Hey! I'm Kai, your AI surf buddy. I can help you with surf conditions, log your sessions, plan trips, or suggest what to do on flat days. Just ask me anything about surfing! What would you like to know?`
-      }
-      setMessages([welcomeMessage])
     }
     
     initializeApp()
   }, [router])
 
-  const fetchSurfData = useCallback(async () => {
-    try {
-      setDataLoading(true)
-      const response = await fetch(`/api/surf?lat=${currentSpot.lat}&lng=${currentSpot.lng}`)
-      const data = await response.json()
-      
-      if (data.hours && data.hours.length > 0) {
-        const current = data.hours[0]
-        setSurfData({
-          waveHeight: current.waveHeight?.sg || 0,
-          wavePeriod: current.wavePeriod?.sg || 0,
-          windSpeed: current.windSpeed?.sg || 0,
-          windDirection: current.windDirection?.sg || 0,
-          temperature: current.airTemperature?.sg || 20,
-          waterTemp: current.waterTemperature?.sg || 22
-        })
-      } else {
-        console.error('No surf data available')
-      }
-    } catch (error) {
-      console.error('Error fetching surf data:', error)
-    } finally {
-      setDataLoading(false)
-    }
-  }, [currentSpot.lat, currentSpot.lng])
-
   // Fetch surf data when spot changes
   useEffect(() => {
     fetchSurfData()
-  }, [fetchSurfData])
+  }, [currentSpot, fetchSurfData])
 
-  // Auto-scroll to bottom of messages
+  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
+  // Send message function
   const sendMessage = async () => {
-    console.log('🚀 sendMessage called with:', inputMessage)
-    
-    if (!inputMessage.trim() || loading) {
-      console.log('⛔ Early return - empty message or loading')
-      return
-    }
+    if (!inputMessage.trim() || loading) return
 
     const userMessage = inputMessage.trim()
     setInputMessage('')
     setLoading(true)
 
-    // Add user message immediately
+    // Add user message
     setMessages(prev => [...prev, { role: 'user', content: userMessage }])
 
     try {
+      // Build conditions context
+      const conditionsContext = surfData ? 
+        `Current conditions at ${currentSpot.name}: ${surfData.waveHeight.toFixed(1)}m waves @ ${surfData.wavePeriod.toFixed(0)}s, ${surfData.windSpeed.toFixed(0)}km/h winds, ${surfData.temperature.toFixed(0)}°C air temp` :
+        `Location: ${currentSpot.name}, ${currentSpot.region}`
+
       const response = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           message: userMessage,
-          conditionsContext: surfData ? 
-            `Current ${currentSpot.name} conditions: ${surfData.waveHeight.toFixed(1)}m waves at ${surfData.wavePeriod.toFixed(0)}s with ${surfData.windSpeed.toFixed(0)}km/h wind.` 
-            : ''
+          conditionsContext
         })
       })
 
-      const data = await response.json()
-      const responseText = data.response || "Sorry mate, having some technical issues. Try again?"
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
 
-      console.log('📤 Full response content:', responseText)
-      console.log('📏 Response length:', responseText.length)
-      console.log('🔤 Response type:', typeof responseText)
-      
-      // FIXED LINE 196: Clean setMessages call without complex callback
+      const data = await response.json()
+      const responseText = data.response || 'Sorry, I had trouble processing that.'
+
+      // Add assistant response
       setMessages(prev => [...prev, { role: 'assistant', content: responseText }])
-      
     } catch (error) {
-      console.error('💥 Chat error:', error)
-      setMessages(prev => [...prev, {
-        role: 'assistant',
-        content: 'Sorry mate, having trouble processing that. Can you try again?'
+      console.error('Error sending message:', error)
+      setMessages(prev => [...prev, { 
+        role: 'assistant', 
+        content: 'Sorry, I\'m having trouble connecting right now. Please try again.' 
       }])
     } finally {
       setLoading(false)
-      console.log('✅ sendMessage completed')
     }
   }
 
+  // Handle quick actions
   const handleQuickAction = (action: string) => {
-    switch (action) {
-      case 'log-session':
-        setInputMessage("I just finished a surf session at " + currentSpot.name + ". ")
-        break
-      case 'check-conditions':
-        setInputMessage("How's the surf looking right now?")
-        break
-      case 'change-location':
-        setCanvasMode('locations')
-        setLeftPanelOpen(true)
-        break
+    const actions = {
+      'log-session': "I'd like to log a surf session",
+      'check-conditions': "How are the current conditions?",
+      'change-location': () => setCanvasMode('locations')
+    }
+    
+    if (action === 'change-location') {
+      actions[action]()
+      setLeftPanelOpen(true)
+    } else {
+      setInputMessage(actions[action as keyof typeof actions] as string)
     }
   }
 
-  const handleSpotChange = (spot: SurfSpot) => {
-    setCurrentSpot(spot)
-    setCanvasMode('forecast')
-    setLeftPanelOpen(false)
+  // Handle Enter key
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      sendMessage()
+    }
   }
 
-  const formatWindDirection = (degrees: number): string => {
+  // Format wind direction
+  const formatWindDirection = (degrees: number) => {
     const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
-    const index = Math.round(degrees / 22.5) % 16
-    return directions[index]
+    return directions[Math.round(degrees / 22.5) % 16]
   }
 
   return (
-    <div className="h-screen bg-slate-900 flex overflow-hidden">
-      {/* Left Sidebar - Claude Style */}
-      <div className={`${leftPanelOpen ? 'w-64' : 'w-12'} bg-slate-800/90 backdrop-blur-sm border-r border-slate-700/50 flex flex-col transition-all duration-300 ease-in-out relative z-50`}>
-        {/* Menu Toggle */}
-        <div className="p-2">
+    <div className="flex h-screen bg-slate-900 text-white">
+      {/* Left Sidebar */}
+      <div className={`bg-slate-800 border-r border-slate-700 transition-all duration-300 ease-in-out ${
+        leftPanelOpen ? 'w-80' : 'w-16'
+      } flex-shrink-0`}>
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-slate-700">
+          {leftPanelOpen && (
+            <div className="font-semibold text-lg text-white">
+              Nalu
+            </div>
+          )}
           <button
             onClick={() => setLeftPanelOpen(!leftPanelOpen)}
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-white hover:bg-slate-700/50 transition-colors duration-300"
+            className={`p-2 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 transition-all duration-200 ${
+              !leftPanelOpen ? 'mx-auto' : ''
+            }`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            {/* Claude-style sidebar icon */}
+            <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h12M4 14h8" />
             </svg>
           </button>
         </div>
 
-        {/* Navigation Icons - Consistent simple outline style */}
-        <div className="flex-1 p-2 space-y-1">
-          {/* Location Icon - Simple map pin */}
+        {/* Navigation Icons */}
+        <div className="p-4 space-y-3">
+          <button
+            onClick={() => setCanvasMode('forecast')}
+            className={`w-full flex items-center px-3 py-3 rounded-lg transition-all duration-200 ${
+              canvasMode === 'forecast' 
+                ? 'bg-blue-800 border border-blue-700 text-white' 
+                : 'bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 text-slate-300'
+            } ${leftPanelOpen ? 'gap-3' : 'justify-center'}`}
+          >
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+            </svg>
+            {leftPanelOpen && (
+              <span className="font-medium">Forecast</span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setCanvasMode('sessions')}
+            className={`w-full flex items-center px-3 py-3 rounded-lg transition-all duration-200 ${
+              canvasMode === 'sessions' 
+                ? 'bg-blue-800 border border-blue-700 text-white' 
+                : 'bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 text-slate-300'
+            } ${leftPanelOpen ? 'gap-3' : 'justify-center'}`}
+          >
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h4a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            {leftPanelOpen && (
+              <span className="font-medium">Sessions</span>
+            )}
+          </button>
+
           <button
             onClick={() => setCanvasMode('locations')}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors duration-300 ${
-              canvasMode === 'locations' ? 'bg-blue-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'
-            }`}
+            className={`w-full flex items-center px-3 py-3 rounded-lg transition-all duration-200 ${
+              canvasMode === 'locations' 
+                ? 'bg-blue-800 border border-blue-700 text-white' 
+                : 'bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 text-slate-300'
+            } ${leftPanelOpen ? 'gap-3' : 'justify-center'}`}
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-          </button>
-
-          {/* Sessions Icon - Simple clipboard/list */}
-          <button
-            onClick={() => setCanvasMode('sessions')}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors duration-300 ${
-              canvasMode === 'sessions' ? 'bg-blue-800 text-white' : 'text-slate-400 hover:text-white hover:bg-slate-700'
-            }`}
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v11a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-            </svg>
-          </button>
-
-          {/* Fitness Icon - Simple lightning bolt */}
-          <button
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 cursor-not-allowed"
-            disabled
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          </button>
-
-          {/* Settings Icon - Simple cog */}
-          <button
-            className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-600 cursor-not-allowed"
-            disabled
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.343 3.94c.09-.542.56-.94 1.11-.94h1.093c.55 0 1.02.398 1.11.94l.149.894c.07.424.384.764.78.93.398.164.855.142 1.205-.108l.737-.527a1.125 1.125 0 011.45.12l.773.774c.39.389.44 1.002.12 1.45l-.527.737c-.25.35-.272.806-.107 1.204.165.397.505.71.93.78l.893.15c.543.09.94.56.94 1.109v1.094c0 .55-.397 1.02-.94 1.11l-.893.149c-.425.07-.765.383-.93.78-.165.398-.143.854.107 1.204l.527.738c.32.447.269 1.06-.12 1.45l-.774.773a1.125 1.125 0 01-1.449.12l-.738-.527c-.35-.25-.806-.272-1.203-.107-.397.165-.71.505-.781.929l-.149.894c-.09.542-.56.94-1.11.94h-1.094c-.55 0-1.019-.398-1.11-.94l-.148-.894c-.071-.424-.384-.764-.781-.93-.398-.164-.854-.142-1.204.108l-.738.527c-.447.32-1.06.269-1.45-.12l-.773-.774a1.125 1.125 0 01-.12-1.45l.527-.737c.25-.35.273-.806.108-1.204-.165-.397-.505-.71-.93-.78l-.894-.15c-.542-.09-.94-.56-.94-1.109v-1.094c0-.55.398-1.02.94-1.11l.894-.149c.424-.07.765-.383.93-.78.165-.398.143-.854-.107-1.204l-.527-.738a1.125 1.125 0 01.12-1.45l.773-.773a1.125 1.125 0 011.45-.12l.737.527c.35.25.807.272 1.204.107.397-.165.71-.505.78-.929l.15-.894z" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
+            {leftPanelOpen && (
+              <span className="font-medium">Locations</span>
+            )}
           </button>
         </div>
 
-        {/* Expanded Content - Clean typography */}
+        {/* Current Location Display */}
         {leftPanelOpen && (
           <div className="px-4 pb-4">
-            <div className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Navigation</div>
-            <div className="space-y-2 text-sm">
-              <div className="flex items-center gap-3 py-2 text-slate-300">
-                <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                </svg>
-                Locations
-              </div>
-              <div className="flex items-center gap-3 py-2 text-slate-300">
-                <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                </svg>
-                Sessions
-              </div>
-              <div className="flex items-center gap-3 py-2 text-slate-500">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                </svg>
-                Fitness
-              </div>
-              <div className="flex items-center gap-3 py-2 text-slate-500">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                </svg>
-                Settings
-              </div>
+            <div className="text-xs font-medium text-slate-400 uppercase tracking-wider mb-3">Current Location</div>
+            <div className="bg-slate-700 border border-slate-600 rounded-lg p-4">
+              <div className="font-medium text-white mb-1">{currentSpot.name}</div>
+              <div className="text-sm text-slate-400">{currentSpot.region}, {currentSpot.state}</div>
             </div>
           </div>
         )}
       </div>
 
       {/* Main Content Area */}
-      <div className="flex-1 flex ml-12">
-        {/* Chat Area - Generous spacing like Claude */}
-        <div className="flex-1 md:w-1/2 bg-slate-900 flex flex-col">
-          {/* Chat Messages - Improved readability */}
+      <div className="flex-1 flex">
+        {/* Chat Area */}
+        <div className={`flex flex-col transition-all duration-300 ${
+          canvasMode === 'chat' ? 'flex-1' : 'w-1/2'
+        }`}>
+          {/* Chat Header */}
+          <div className="border-b border-slate-700 p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h1 className="text-xl font-semibold text-white">Chat with Kai</h1>
+                <p className="text-sm text-slate-400">{currentSpot.name} • {currentSpot.region}</p>
+              </div>
+              {canvasMode !== 'chat' && (
+                <button
+                  onClick={() => setCanvasMode('chat')}
+                  className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 transition-all duration-200"
+                >
+                  <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Messages */}
           <div className="flex-1 overflow-y-auto p-6 space-y-6">
             {messages.map((message, index) => (
               <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] px-5 py-4 rounded-lg ${
-                  message.role === 'user' 
-                    ? 'bg-blue-800 text-white' 
-                    : 'bg-slate-700 border border-slate-600 text-slate-100'
+                <div className={`max-w-[80%] px-6 py-4 rounded-lg ${
+                  message.role === 'user'
+                    ? 'bg-blue-800 text-white border border-blue-700'
+                    : 'bg-slate-700 text-white border border-slate-600'
                 }`}>
-                  <div className="text-sm leading-relaxed">{message.content}</div>
+                  <div className="leading-relaxed">{message.content}</div>
                 </div>
               </div>
             ))}
             {loading && (
               <div className="flex justify-start">
-                <div className="bg-slate-700 border border-slate-600 text-slate-300 px-5 py-4 rounded-lg">
-                  <div className="flex items-center gap-2">
+                <div className="bg-slate-700 border border-slate-600 px-6 py-4 rounded-lg">
+                  <div className="flex items-center gap-2 text-slate-400">
                     <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse"></div>
                     <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
                     <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
-                    <span className="ml-2 text-sm">Kai is thinking...</span>
                   </div>
                 </div>
               </div>
             )}
             <div ref={messagesEndRef} />
           </div>
-          
-          {/* Chat Input - Expanded for mobile optimization */}
-          <div className="border-t border-slate-700/50 p-6">
-            <div className="space-y-4">
-              {/* Quick Action Buttons - Consistent icon sizing */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleQuickAction('log-session')}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm text-white transition-colors duration-300"
-                  title="Log Session"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => handleQuickAction('check-conditions')}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm text-white transition-colors duration-300"
-                  title="Check Conditions"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                  </svg>
-                </button>
-                <button
-                  onClick={() => handleQuickAction('change-location')}
-                  className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg text-sm text-white transition-colors duration-300"
-                  title="Change Location"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </button>
-              </div>
 
-              {/* Message Input */}
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={inputMessage}
-                  onChange={(e) => setInputMessage(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
-                  placeholder="Message Kai..."
-                  className="flex-1 px-4 py-3 bg-slate-700 border border-slate-600 text-white placeholder-slate-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-800 focus:border-transparent transition-colors duration-300"
-                />
+          {/* Chat Input */}
+          <div className="border-t border-slate-700/50 p-6">
+            <div className="bg-slate-700 border border-slate-600 rounded-lg p-4">
+              {/* Message Input - Top Row */}
+              <textarea
+                value={inputMessage}
+                onChange={(e) => setInputMessage(e.target.value)}
+                onKeyPress={handleKeyPress}
+                placeholder="Ask about conditions, log a session, or get recommendations..."
+                className="w-full bg-transparent text-white placeholder-slate-400 resize-none border-0 outline-none text-base leading-relaxed"
+                rows={1}
+                style={{
+                  minHeight: '24px',
+                  maxHeight: '120px',
+                  height: Math.min(120, Math.max(24, inputMessage.split('\n').length * 24))
+                }}
+                disabled={loading}
+              />
+              
+              {/* Divider */}
+              <div className="border-t border-slate-600 my-3"></div>
+              
+              {/* Bottom Row - Quick Actions + Send */}
+              <div className="flex items-center justify-between">
+                {/* Quick Action Buttons - Left */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleQuickAction('log-session')}
+                    className="flex items-center justify-center w-8 h-8 bg-slate-600 hover:bg-slate-500 border border-slate-500 hover:border-slate-400 rounded-lg transition-all duration-200 text-slate-300 hover:text-white"
+                    disabled={loading}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                  </button>
+                  
+                  <button
+                    onClick={() => handleQuickAction('check-conditions')}
+                    className="flex items-center justify-center w-8 h-8 bg-slate-600 hover:bg-slate-500 border border-slate-500 hover:border-slate-400 rounded-lg transition-all duration-200 text-slate-300 hover:text-white"
+                    disabled={loading}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                    </svg>
+                  </button>
+                  
+                  <button
+                    onClick={() => handleQuickAction('change-location')}
+                    className="flex items-center justify-center w-8 h-8 bg-slate-600 hover:bg-slate-500 border border-slate-500 hover:border-slate-400 rounded-lg transition-all duration-200 text-slate-300 hover:text-white"
+                    disabled={loading}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                  </button>
+                </div>
+
+                {/* Send Button - Right */}
                 <button
                   onClick={sendMessage}
-                  disabled={loading || !inputMessage.trim()}
-                  className="bg-blue-800 hover:bg-blue-700 disabled:bg-slate-600 disabled:cursor-not-allowed text-white px-6 py-3 rounded-lg transition-colors duration-200 font-medium"
+                  disabled={!inputMessage.trim() || loading}
+                  className="flex items-center justify-center w-8 h-8 bg-blue-800 hover:bg-blue-700 disabled:bg-slate-600 disabled:text-slate-400 border border-blue-700 hover:border-blue-600 disabled:border-slate-500 rounded-lg transition-all duration-200 text-white"
                 >
-                  Send
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
                 </button>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Canvas Area - Context display */}
+        {/* Canvas Area */}
         {canvasMode !== 'chat' && (
-          <div className="hidden md:flex md:w-1/2 bg-slate-800 border-l border-slate-700/50">
+          <div className="w-1/2 border-l border-slate-700">
             {/* Locations Canvas */}
             {canvasMode === 'locations' && (
               <div className="flex-1 p-8 overflow-y-auto">
-                <div className="mb-8">
-                  <h2 className="text-2xl font-semibold text-white mb-2">Surf Locations</h2>
-                  <p className="text-slate-400">Choose your surf spot to get conditions and chat with Kai</p>
-                </div>
-
-                <div className="space-y-6">
-                  {SURF_LOCATIONS.map((location) => (
-                    <div key={location.id} className="space-y-2">
-                      <h3 className="text-lg font-medium text-white">{location.region}, {location.state}</h3>
-                      <div className="grid gap-3">
-                        <button
-                          onClick={() => handleSpotChange(location)}
-                          className={`p-4 rounded-lg border transition-all text-left ${
-                            currentSpot.id === location.id
-                              ? 'bg-blue-800 border-blue-700 text-white'
-                              : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600 hover:border-slate-500'
-                          }`}
-                        >
-                          <div className="font-medium text-white mb-1">{location.name}</div>
-                          <div className="text-sm text-slate-400 mb-2">{location.region} • {location.breakType}</div>
-                          <div className="text-xs text-slate-500 leading-relaxed">{location.description}</div>
-                        </button>
-                      </div>
-                    </div>
+                <h2 className="text-2xl font-semibold text-white mb-8">Select Location</h2>
+                <div className="space-y-4">
+                  {surfSpots.map((spot) => (
+                    <button
+                      key={spot.id}
+                      onClick={() => {
+                        setCurrentSpot(spot)
+                        setCanvasMode('chat')
+                      }}
+                      className={`w-full p-6 rounded-lg border text-left transition-all duration-200 hover:scale-[1.02] ${
+                        currentSpot.id === spot.id
+                          ? 'bg-blue-800 border-blue-700 text-white'
+                          : 'bg-slate-700 border-slate-600 text-slate-300 hover:bg-slate-600 hover:border-slate-500'
+                      }`}
+                    >
+                      <div className="font-medium text-white mb-1">{spot.name}</div>
+                      <div className="text-sm text-slate-400 mb-2">{spot.region} • {spot.breakType}</div>
+                      <div className="text-xs text-slate-500 leading-relaxed">{spot.description}</div>
+                    </button>
                   ))}
                 </div>
               </div>
