@@ -32,6 +32,7 @@ interface Message {
 export default function HomePage() {
   const router = useRouter()
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   
   // State management
   const [user, setUser] = useState<{id: string, email?: string} | null>(null)
@@ -55,7 +56,7 @@ export default function HomePage() {
   const [surfData, setSurfData] = useState<SurfData | null>(null)
   const [dataLoading, setDataLoading] = useState(false)
 
-  // Surf spots data
+  // Surf spots data - Complete Australian locations
   const surfSpots = [
     {
       id: 'byron-bay',
@@ -86,8 +87,160 @@ export default function HomePage() {
       state: 'QLD',
       breakType: 'Sand Bottom Point',
       description: 'The world\'s longest man-made wave, offering barrels and performance sections.'
+    },
+    {
+      id: 'manly-beach',
+      name: 'Manly Beach',
+      lat: -33.7969,
+      lng: 151.2886,
+      region: 'Northern Beaches',
+      state: 'NSW',
+      breakType: 'Beach Break',
+      description: 'Sydney\'s premier surf beach with consistent waves and easy access.'
+    },
+    {
+      id: 'bondi-beach',
+      name: 'Bondi Beach',
+      lat: -33.8915,
+      lng: 151.2767,
+      region: 'Eastern Suburbs',
+      state: 'NSW',
+      breakType: 'Beach Break',
+      description: 'World-famous beach break in the heart of Sydney with reliable surf.'
+    },
+    {
+      id: 'noosa-heads',
+      name: 'Noosa Heads',
+      lat: -26.3973,
+      lng: 153.1235,
+      region: 'Sunshine Coast',
+      state: 'QLD',
+      breakType: 'Point Break',
+      description: 'Premium longboard waves with multiple sections and warm water.'
+    },
+    {
+      id: 'margaret-river',
+      name: 'Margaret River',
+      lat: -33.9544,
+      lng: 115.0724,
+      region: 'Margaret River',
+      state: 'WA',
+      breakType: 'Reef Break',
+      description: 'World-class reef breaks producing powerful waves for experienced surfers.'
+    },
+    {
+      id: 'torquay',
+      name: 'Torquay',
+      lat: -38.3306,
+      lng: 144.3272,
+      region: 'Surf Coast',
+      state: 'VIC',
+      breakType: 'Beach Break',
+      description: 'Birthplace of global surf brands with consistent waves year-round.'
+    },
+    {
+      id: 'burleigh-heads',
+      name: 'Burleigh Heads',
+      lat: -28.0991,
+      lng: 153.4497,
+      region: 'Gold Coast',
+      state: 'QLD',
+      breakType: 'Point Break',
+      description: 'Classic right-hand point break with long rides and barrel sections.'
+    },
+    {
+      id: 'lennox-head',
+      name: 'Lennox Head',
+      lat: -28.7938,
+      lng: 153.5938,
+      region: 'Northern Rivers',
+      state: 'NSW',
+      breakType: 'Point Break',
+      description: 'Powerful right-hand point break known for its consistency and quality.'
+    },
+    {
+      id: 'the-pass',
+      name: 'The Pass',
+      lat: -28.6397,
+      lng: 153.6089,
+      region: 'Byron Bay',
+      state: 'NSW',
+      breakType: 'Point Break',
+      description: 'Byron\'s iconic right-hand point break perfect for longboards and learners.'
+    },
+    {
+      id: 'currumbin',
+      name: 'Currumbin',
+      lat: -28.1309,
+      lng: 153.4886,
+      region: 'Gold Coast',
+      state: 'QLD',
+      breakType: 'Beach Break',
+      description: 'Reliable beach break with multiple peaks and good for all levels.'
+    },
+    {
+      id: 'cronulla',
+      name: 'Cronulla',
+      lat: -34.0583,
+      lng: 151.1531,
+      region: 'Sutherland Shire',
+      state: 'NSW',
+      breakType: 'Beach Break',
+      description: 'Sydney\'s southern beaches offering consistent surf close to the city.'
+    },
+    {
+      id: 'dee-why',
+      name: 'Dee Why',
+      lat: -33.7531,
+      lng: 151.2997,
+      region: 'Northern Beaches',
+      state: 'NSW',
+      breakType: 'Beach Break',
+      description: 'Popular beach break with good waves and strong local surf community.'
+    },
+    {
+      id: 'mona-vale',
+      name: 'Mona Vale',
+      lat: -33.6772,
+      lng: 151.3072,
+      region: 'Northern Beaches',
+      state: 'NSW',
+      breakType: 'Beach Break',
+      description: 'Scenic beach break with consistent waves and beautiful surroundings.'
+    },
+    {
+      id: 'wollongong',
+      name: 'Wollongong',
+      lat: -34.4249,
+      lng: 150.8931,
+      region: 'Illawarra',
+      state: 'NSW',
+      breakType: 'Beach Break',
+      description: 'Coastal city with multiple surf spots and year-round surfable conditions.'
     }
   ]
+
+  // Auto-resize textarea function
+  const autoResizeTextarea = useCallback(() => {
+    const textarea = textareaRef.current
+    if (!textarea) return
+
+    // Reset height to measure scrollHeight
+    textarea.style.height = '24px'
+    
+    const scrollHeight = textarea.scrollHeight
+    const maxHeight = 120
+
+    if (scrollHeight <= maxHeight) {
+      // Content fits, expand to show all content, hide scrollbar
+      textarea.style.height = `${scrollHeight}px`
+      textarea.style.overflowY = 'hidden'
+    } else {
+      // Content exceeds max height, set to max and show scrollbar
+      textarea.style.height = `${maxHeight}px`
+      textarea.style.overflowY = 'auto'
+    }
+  }, [])
 
   // Fetch surf data
   const fetchSurfData = useCallback(async () => {
@@ -137,7 +290,12 @@ export default function HomePage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Send message function
+  // Auto-resize textarea when input changes
+  useEffect(() => {
+    autoResizeTextarea()
+  }, [inputMessage, autoResizeTextarea])
+
+  // Send message function - UPDATED with location intelligence
   const sendMessage = async () => {
     if (!inputMessage.trim() || loading) return
 
@@ -159,7 +317,20 @@ export default function HomePage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: userMessage,
-          conditionsContext
+          conditionsContext,
+          // NEW: Add current location data for session logging
+          currentLocation: {
+            spotId: currentSpot.id,
+            name: currentSpot.name,
+            region: currentSpot.region,
+            state: currentSpot.state,
+            breakType: currentSpot.breakType,
+            coordinates: {
+              lat: currentSpot.lat,
+              lng: currentSpot.lng
+            }
+          },
+          userId: user?.id
         })
       })
 
@@ -214,11 +385,11 @@ export default function HomePage() {
   }
 
   return (
-    <div className="flex h-screen bg-slate-900 text-white">
-      {/* Left Sidebar */}
-      <div className={`bg-slate-800 border-r border-slate-700 transition-all duration-300 ease-in-out ${
+    <div className="flex h-screen bg-slate-900 text-white overflow-hidden">
+      {/* Left Sidebar - Fixed positioning */}
+      <div className={`fixed top-0 left-0 h-full bg-slate-800 border-r border-slate-700 transition-all duration-300 ease-in-out z-30 ${
         leftPanelOpen ? 'w-80' : 'w-16'
-      } flex-shrink-0`}>
+      }`}>
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-700">
           {leftPanelOpen && (
@@ -232,9 +403,10 @@ export default function HomePage() {
               !leftPanelOpen ? 'mx-auto' : ''
             }`}
           >
-            {/* Claude-style sidebar icon */}
+            {/* Exact Claude sidebar icon - rectangle with vertical divider */}
             <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h12M4 14h8" />
+              <rect x="3" y="6" width="18" height="12" strokeWidth={2} rx="2" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 6v12" />
             </svg>
           </button>
         </div>
@@ -303,20 +475,137 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Main Content Area */}
-      <div className="flex-1 flex">
-        {/* Chat Area */}
-        <div className={`flex flex-col transition-all duration-300 ${
-          canvasMode === 'chat' ? 'flex-1' : 'w-1/2'
-        }`}>
-          {/* Chat Header */}
-          <div className="border-b border-slate-700 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h1 className="text-xl font-semibold text-white">Chat with Kai</h1>
-                <p className="text-sm text-slate-400">{currentSpot.name} • {currentSpot.region}</p>
+      {/* Main Content Area - Responsive to canvas state */}
+      <div 
+        className={`flex flex-col h-full transition-all duration-300 ${
+          leftPanelOpen ? 'ml-80' : 'ml-16'
+        } ${canvasMode !== 'chat' ? 'md:mr-[60%]' : ''}`} 
+        style={{ 
+          width: canvasMode !== 'chat' 
+            ? `calc(100% - ${leftPanelOpen ? '320px' : '64px'} - 0px)` // Mobile: full width minus sidebar
+            : `calc(100% - ${leftPanelOpen ? '320px' : '64px'})`
+        }}
+      >
+        {/* Chat Header */}
+        <div className="border-b border-slate-700 p-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-xl font-semibold text-white">Chat with Kai</h1>
+              <p className="text-sm text-slate-400">{currentSpot.name} • {currentSpot.region}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Messages */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+          {messages.map((message, index) => (
+            <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+              <div className={`max-w-[80%] px-6 py-4 rounded-lg ${
+                message.role === 'user'
+                  ? 'bg-blue-800 text-white border border-blue-700'
+                  : 'bg-slate-700 text-white border border-slate-600'
+              }`}>
+                <div className="leading-relaxed">{message.content}</div>
               </div>
-              {canvasMode !== 'chat' && (
+            </div>
+          ))}
+          {loading && (
+            <div className="flex justify-start">
+              <div className="bg-slate-700 border border-slate-600 px-6 py-4 rounded-lg">
+                <div className="flex items-center gap-2 text-slate-400">
+                  <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse"></div>
+                  <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
+                  <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
+                </div>
+              </div>
+            </div>
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+
+        {/* Chat Input */}
+        <div className="border-t border-slate-700/50 p-6">
+          <div className="bg-slate-700 border border-slate-600 rounded-lg p-4">
+            {/* Message Input - Top Row */}
+            <textarea
+              ref={textareaRef}
+              value={inputMessage}
+              onChange={(e) => setInputMessage(e.target.value)}
+              onKeyDown={handleKeyPress}
+              placeholder="Ask about conditions, log a session, or get recommendations..."
+              className="w-full bg-transparent text-white placeholder-slate-400 border-0 outline-none text-base leading-relaxed resize-none overflow-hidden"
+              rows={1}
+              style={{
+                minHeight: '24px',
+                maxHeight: '120px'
+              }}
+              disabled={loading}
+            />
+            
+            {/* Divider */}
+            <div className="border-t border-slate-600 my-3"></div>
+            
+            {/* Bottom Row - Quick Actions + Send */}
+            <div className="flex items-center justify-between">
+              {/* Quick Action Buttons - Left */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleQuickAction('log-session')}
+                  className="flex items-center justify-center w-8 h-8 bg-slate-600 hover:bg-slate-500 border border-slate-500 hover:border-slate-400 rounded-lg transition-all duration-200 text-slate-300 hover:text-white"
+                  disabled={loading}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                  </svg>
+                </button>
+                
+                <button
+                  onClick={() => handleQuickAction('check-conditions')}
+                  className="flex items-center justify-center w-8 h-8 bg-slate-600 hover:bg-slate-500 border border-slate-500 hover:border-slate-400 rounded-lg transition-all duration-200 text-slate-300 hover:text-white"
+                  disabled={loading}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                  </svg>
+                </button>
+                
+                <button
+                  onClick={() => handleQuickAction('change-location')}
+                  className="flex items-center justify-center w-8 h-8 bg-slate-600 hover:bg-slate-500 border border-slate-500 hover:border-slate-400 rounded-lg transition-all duration-200 text-slate-300 hover:text-white"
+                  disabled={loading}
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 616 0z" />
+                  </svg>
+                </button>
+              </div>
+
+              {/* Send Button - Right */}
+              <button
+                onClick={sendMessage}
+                disabled={!inputMessage.trim() || loading}
+                className="flex items-center justify-center w-8 h-8 bg-blue-800 hover:bg-blue-700 disabled:bg-slate-600 disabled:text-slate-400 border border-blue-700 hover:border-blue-600 disabled:border-slate-500 rounded-lg transition-all duration-200 text-white"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Canvas Area - Responsive positioning */}
+      {canvasMode !== 'chat' && (
+        <div 
+          className="fixed top-0 h-full bg-slate-800 border-l border-slate-700 z-50 transform transition-transform duration-300 ease-in-out right-0 w-full md:w-3/5 md:right-0"
+        >
+          {/* Locations Canvas */}
+          {canvasMode === 'locations' && (
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-between p-8 border-b border-slate-700">
+                <h2 className="text-2xl font-semibold text-white">Select Location</h2>
                 <button
                   onClick={() => setCanvasMode('chat')}
                   className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 transition-all duration-200"
@@ -325,117 +614,8 @@ export default function HomePage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
                 </button>
-              )}
-            </div>
-          </div>
-
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-6 space-y-6">
-            {messages.map((message, index) => (
-              <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] px-6 py-4 rounded-lg ${
-                  message.role === 'user'
-                    ? 'bg-blue-800 text-white border border-blue-700'
-                    : 'bg-slate-700 text-white border border-slate-600'
-                }`}>
-                  <div className="leading-relaxed">{message.content}</div>
-                </div>
               </div>
-            ))}
-            {loading && (
-              <div className="flex justify-start">
-                <div className="bg-slate-700 border border-slate-600 px-6 py-4 rounded-lg">
-                  <div className="flex items-center gap-2 text-slate-400">
-                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse"></div>
-                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}}></div>
-                    <div className="w-2 h-2 bg-slate-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}}></div>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div ref={messagesEndRef} />
-          </div>
-
-          {/* Chat Input */}
-          <div className="border-t border-slate-700/50 p-6">
-            <div className="bg-slate-700 border border-slate-600 rounded-lg p-4">
-              {/* Message Input - Top Row */}
-              <textarea
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder="Ask about conditions, log a session, or get recommendations..."
-                className="w-full bg-transparent text-white placeholder-slate-400 resize-none border-0 outline-none text-base leading-relaxed"
-                rows={1}
-                style={{
-                  minHeight: '24px',
-                  maxHeight: '120px',
-                  height: Math.min(120, Math.max(24, inputMessage.split('\n').length * 24))
-                }}
-                disabled={loading}
-              />
-              
-              {/* Divider */}
-              <div className="border-t border-slate-600 my-3"></div>
-              
-              {/* Bottom Row - Quick Actions + Send */}
-              <div className="flex items-center justify-between">
-                {/* Quick Action Buttons - Left */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleQuickAction('log-session')}
-                    className="flex items-center justify-center w-8 h-8 bg-slate-600 hover:bg-slate-500 border border-slate-500 hover:border-slate-400 rounded-lg transition-all duration-200 text-slate-300 hover:text-white"
-                    disabled={loading}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                  </button>
-                  
-                  <button
-                    onClick={() => handleQuickAction('check-conditions')}
-                    className="flex items-center justify-center w-8 h-8 bg-slate-600 hover:bg-slate-500 border border-slate-500 hover:border-slate-400 rounded-lg transition-all duration-200 text-slate-300 hover:text-white"
-                    disabled={loading}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-                    </svg>
-                  </button>
-                  
-                  <button
-                    onClick={() => handleQuickAction('change-location')}
-                    className="flex items-center justify-center w-8 h-8 bg-slate-600 hover:bg-slate-500 border border-slate-500 hover:border-slate-400 rounded-lg transition-all duration-200 text-slate-300 hover:text-white"
-                    disabled={loading}
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                  </button>
-                </div>
-
-                {/* Send Button - Right */}
-                <button
-                  onClick={sendMessage}
-                  disabled={!inputMessage.trim() || loading}
-                  className="flex items-center justify-center w-8 h-8 bg-blue-800 hover:bg-blue-700 disabled:bg-slate-600 disabled:text-slate-400 border border-blue-700 hover:border-blue-600 disabled:border-slate-500 rounded-lg transition-all duration-200 text-white"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Canvas Area */}
-        {canvasMode !== 'chat' && (
-          <div className="w-1/2 border-l border-slate-700">
-            {/* Locations Canvas */}
-            {canvasMode === 'locations' && (
               <div className="flex-1 p-8 overflow-y-auto">
-                <h2 className="text-2xl font-semibold text-white mb-8">Select Location</h2>
                 <div className="space-y-4">
                   {surfSpots.map((spot) => (
                     <button
@@ -457,17 +637,29 @@ export default function HomePage() {
                   ))}
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Forecast Canvas */}
-            {canvasMode === 'forecast' && (
-              <div className="flex-1 p-8 overflow-y-auto">
-                <div className="mb-8">
+          {/* Forecast Canvas */}
+          {canvasMode === 'forecast' && (
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-between p-8 border-b border-slate-700">
+                <div>
                   <h2 className="text-2xl font-semibold text-white mb-2">{currentSpot.name}</h2>
                   <p className="text-slate-400 mb-1">{currentSpot.region}, {currentSpot.state} • {currentSpot.breakType}</p>
                   <p className="text-sm text-slate-500 leading-relaxed">{currentSpot.description}</p>
                 </div>
+                <button
+                  onClick={() => setCanvasMode('chat')}
+                  className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 transition-all duration-200"
+                >
+                  <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
 
+              <div className="flex-1 p-8 overflow-y-auto">
                 {dataLoading ? (
                   <div className="bg-slate-700 rounded-lg p-12 text-center">
                     <div className="text-slate-400">Loading conditions...</div>
@@ -506,21 +698,33 @@ export default function HomePage() {
                   </div>
                 )}
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Sessions Canvas */}
-            {canvasMode === 'sessions' && (
+          {/* Sessions Canvas */}
+          {canvasMode === 'sessions' && (
+            <div className="flex flex-col h-full">
+              <div className="flex items-center justify-between p-8 border-b border-slate-700">
+                <h2 className="text-2xl font-semibold text-white">Session History</h2>
+                <button
+                  onClick={() => setCanvasMode('chat')}
+                  className="p-2 rounded-lg bg-slate-700 hover:bg-slate-600 border border-slate-600 hover:border-slate-500 transition-all duration-200"
+                >
+                  <svg className="w-5 h-5 text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
               <div className="flex-1 p-8 overflow-y-auto">
-                <h2 className="text-2xl font-semibold text-white mb-8">Session History</h2>
                 <div className="bg-slate-700 border border-slate-600 rounded-lg p-12 text-center">
                   <div className="text-slate-400 mb-3">No sessions logged yet</div>
                   <div className="text-sm text-slate-500">Start a conversation with Kai to log your first session!</div>
                 </div>
               </div>
-            )}
-          </div>
-        )}
-      </div>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
