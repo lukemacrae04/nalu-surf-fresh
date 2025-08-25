@@ -4,7 +4,7 @@ export async function POST(request) {
   try {
     const { message, conditionsContext, currentLocation, userId } = await request.json()
     
-    // Build the decisive surf coach prompt
+    // Simple, clean prompt without complex state logic
     const coachPrompt = `You are Kai, a decisive surf coach tool. Users want quick, actionable intel to get in the water faster.
 
 RESPONSE STYLE:
@@ -30,19 +30,17 @@ When users ask about conditions ("How's the surf?", "Should I surf?", "What's it
 - Use the actual location name: ${currentLocation?.name || 'the current spot'}
 
 When users want to log sessions:
-- Ask ONE specific question at a time
-- Keep it brief: "How long were you out?" or "What board?"
-- Don't be chatty
-- When you have enough info (duration, board, rating), automatically trigger session save
-
-SESSION LOGGING DETECTION:
-If the user message contains session logging intent ("log a session", "I just surfed", "rate my session"), 
-guide them through the conversation and when you have duration + board + rating, include this exact phrase at the end of your response:
-"[SAVE_SESSION: duration=X, board=Y, rating=Z]"
+- Ask for duration first: "How long were you out?"
+- WAIT for their answer, then ask: "What board did you ride?"
+- WAIT for their answer, then ask: "How would you rate the session 1-10?"
+- WAIT for their answer, then ask: "How were the actual conditions?"
+- STAY IN SESSION LOGGING MODE until all 4 answers are collected
+- DO NOT give surf recommendations during session logging
+- ONLY save when you have all 4 answers
 
 USER MESSAGE: "${message}"
 
-Be decisive and concise:`
+Be decisive and concise. Respond naturally to what the user just said.`
 
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -67,42 +65,9 @@ Be decisive and concise:`
 
     const data = await response.json()
     const aiResponse = data.content[0].text
-
-    // Check if AI wants to save a session
-    const saveSessionMatch = aiResponse.match(/\[SAVE_SESSION: duration=([^,]+), board=([^,]+), rating=([^\]]+)\]/)
-    
-    if (saveSessionMatch && userId && currentLocation) {
-      // Extract session data
-      const [, duration, board, rating] = saveSessionMatch
-      
-      // Save session with correct location
-      try {
-        await fetch(`${process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'}/api/save-session`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId,
-            duration: duration.trim(),
-            board: board.trim(),
-            rating: rating.trim(),
-            conditions: conditionsContext,
-            conversation: message,
-            location: currentLocation
-          })
-        })
-        
-        // Remove the save trigger from response
-        const cleanResponse = aiResponse.replace(saveSessionMatch[0], '').trim()
-        return NextResponse.json({ 
-          response: cleanResponse + " Session saved! 🤙"
-        })
-      } catch (error) {
-        console.error('Session save error:', error)
-      }
-    }
     
     return NextResponse.json({ 
-      response: aiResponse 
+      response: aiResponse
     })
   } catch (error) {
     console.error('Chat API error:', error)
