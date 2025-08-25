@@ -10,12 +10,9 @@ export default function SessionModal({
   forecastData,
   chatContext 
 }) {
-  // Debug: Check what forecast data we're receiving
-  console.log('SessionModal - forecastData:', forecastData);
-  console.log('SessionModal - currentSpot:', currentSpot);
   // Smart pre-filling from chat context and forecast
   const [duration, setDuration] = useState(1.5);
-  const [board, setBoard] = useState("6'2\" Shortboard");
+  const [board, setBoard] = useState("6'2\" Shortboard"); // Default selection
   const [rating, setRating] = useState(0);
   const [waveSize, setWaveSize] = useState('');
   const [wind, setWind] = useState('');
@@ -144,7 +141,7 @@ export default function SessionModal({
         <div className="p-4 overflow-y-auto max-h-[calc(85vh-8rem)]">
           {/* Duration */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-semibold text-gray-800 mb-2">
               Duration
             </label>
             <div className="flex items-center justify-center space-x-4">
@@ -170,7 +167,7 @@ export default function SessionModal({
 
           {/* Board */}
           <div className="mb-6">
-            <label htmlFor="board-select" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="board-select" className="block text-sm font-semibold text-gray-800 mb-2">
               Board
             </label>
             <div className="relative">
@@ -178,7 +175,7 @@ export default function SessionModal({
                 id="board-select"
                 value={board}
                 onChange={(e) => setBoard(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-lg bg-white appearance-none pr-10"
+                className="w-full p-3 border border-gray-300 rounded-lg bg-white appearance-none pr-10 text-gray-900"
               >
                 {boardOptions.map(option => (
                   <option key={option} value={option}>{option}</option>
@@ -195,7 +192,7 @@ export default function SessionModal({
 
           {/* Rating */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-semibold text-gray-800 mb-2">
               Rating
             </label>
             <div className="flex space-x-1">
@@ -219,18 +216,21 @@ export default function SessionModal({
 
           {/* Wave Size */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Wave Size {forecastData?.waveHeight ? `(Forecast: ${forecastData.waveHeight.toFixed(1)}m)` : ''}
+            <label className="block text-sm font-semibold text-gray-800 mb-1">
+              Wave Size
             </label>
+            <p className="text-xs text-gray-500 mb-3">
+              {forecastData?.waveHeight > 0 ? `Forecast: ${forecastData.waveHeight.toFixed(1)}m` : 'Forecast: No data'}
+            </p>
             <div className="flex space-x-2">
               {['Bigger', 'Same', 'Smaller'].map(option => (
                 <button
                   key={option}
                   onClick={() => handleConditionClick('wave', option)}
-                  className={`px-4 py-2 rounded-full border text-sm font-medium ${
+                  className={`px-4 py-2 rounded-full border text-sm font-medium transition-all duration-200 ${
                     waveSize === option
                       ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
                   }`}
                 >
                   {option}
@@ -241,18 +241,21 @@ export default function SessionModal({
 
           {/* Wind */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Wind {forecastData?.windSpeed ? `(Forecast: ${forecastData.windSpeed.toFixed(0)}km/h ${formatWindDirection(forecastData.windDirection)})` : ''}
+            <label className="block text-sm font-semibold text-gray-800 mb-1">
+              Wind
             </label>
+            <p className="text-xs text-gray-500 mb-3">
+              {forecastData?.windSpeed > 0 ? `Forecast: ${forecastData.windSpeed.toFixed(0)}km/h ${formatWindDirection(forecastData.windDirection)}` : 'Forecast: No data'}
+            </p>
             <div className="flex flex-wrap gap-2">
               {['Lighter', 'Same', 'Stronger', 'Different direction'].map(option => (
                 <button
                   key={option}
                   onClick={() => handleConditionClick('wind', option)}
-                  className={`px-4 py-2 rounded-full border text-sm font-medium ${
+                  className={`px-4 py-2 rounded-full border text-sm font-medium transition-all duration-200 ${
                     wind === option
                       ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
                   }`}
                 >
                   {option}
@@ -263,18 +266,21 @@ export default function SessionModal({
 
           {/* Wave Quality */}
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Wave Quality (Forecast: Clean)
+            <label className="block text-sm font-semibold text-gray-800 mb-1">
+              Wave Quality
             </label>
+            <p className="text-xs text-gray-500 mb-3">
+              Forecast: Clean
+            </p>
             <div className="flex space-x-2">
               {['Better', 'Same', 'Worse'].map(option => (
                 <button
                   key={option}
                   onClick={() => handleConditionClick('quality', option)}
-                  className={`px-4 py-2 rounded-full border text-sm font-medium ${
+                  className={`px-4 py-2 rounded-full border text-sm font-medium transition-all duration-200 ${
                     waveQuality === option
                       ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                      : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50 hover:border-gray-400'
                   }`}
                 >
                   {option}
@@ -285,22 +291,25 @@ export default function SessionModal({
 
           {/* Additional Notes */}
           <div className="mb-6">
-            <label htmlFor="session-notes" className="block text-sm font-medium text-gray-700 mb-2">
-              Additional Notes <span className="text-gray-500">(optional)</span>
+            <label htmlFor="session-notes" className="block text-sm font-semibold text-gray-800 mb-1">
+              Additional Notes <span className="text-gray-400 font-normal">(optional)</span>
             </label>
+            <p className="text-xs text-gray-500 mb-3">
+              Any other details worth remembering?
+            </p>
             <textarea
               id="session-notes"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               placeholder="Anything else worth noting?"
-              className="w-full p-3 border border-gray-300 rounded-lg resize-none"
+              className="w-full p-3 border border-gray-300 rounded-lg resize-none text-gray-900 placeholder-gray-500"
               rows={3}
             />
           </div>
         </div>
 
-        {/* Fixed Footer */}
-        <div className="border-t border-gray-200 p-4 bg-white">
+        {/* Fixed Footer - Safe area aware */}
+        <div className="border-t border-gray-200 p-4 bg-white" style={{paddingBottom: 'calc(1rem + env(safe-area-inset-bottom))'}}>
           <div className="flex space-x-3">
             <button
               onClick={onClose}
